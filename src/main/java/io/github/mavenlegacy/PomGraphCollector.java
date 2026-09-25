@@ -147,7 +147,8 @@ public final class PomGraphCollector {
         if (evaluator != null) return evaluator.evaluate(owner, property);
         try {
             String name = "coordinate-" + (++operation);
-            Path output = directory.resolve("logs").resolve(name + ".txt");
+            Path coordinateLogs = directory.resolve("logs").resolve("coordinates");
+            Path output = coordinateLogs.resolve(name + ".txt");
             var parameters = new ArrayList<>(List.of("-Dexpression=" + property, "-Doutput=" + output));
             // Inherited imports use the consumer context. Imported BOMs and dependencies use their own model.
             if (!inherited(owner)) parameters.add("-Dartifact=" + owner.coordinate().gav());
@@ -155,7 +156,7 @@ public final class PomGraphCollector {
             String[] value = { "" };
             Collector.collectOne(module, new MavenRunner(), Path.of(module.wrapper), Path.of(module.pomPath), Path.of(module.repository), options,
                     "org.apache.maven.plugins:maven-help-plugin:" + options.helpPluginVersion() + ":evaluate", parameters,
-                    directory.resolve("logs").resolve(name + ".log"), report, () -> {
+                    coordinateLogs.resolve(name + ".log"), report, () -> {
                         String text = Files.readString(output).trim();
                         module.evidence.put(name, ReportLayout.relativeLink(report, output));
                         if (!text.equals("null object or invalid expression") && !text.contains("\n") && !text.contains("\r") && !text.startsWith("<")) value[0] = text;
