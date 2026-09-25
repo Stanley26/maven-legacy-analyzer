@@ -29,7 +29,7 @@ class ScannerTest {
     @Test void doesNotInventSystemMavenFallback() throws Exception {
         Files.writeString(root.resolve("pom.xml"), "<project><artifactId>root</artifactId></project>");
         var module = new Scanner().scan(root, root.resolve("report")).modules().getFirst();
-        new Collector().collect(module, new Configuration(null, root).forRepository(root), root.resolve("report"), false);
+        new Collector().collect(module, new Configuration(null, root).forRepository(root), root.resolve("report/evidence"), root.resolve("report"), false);
         assertEquals("PARTIAL", module.status);
         assertEquals("NO_WRAPPER", module.issues.getFirst().code());
     }

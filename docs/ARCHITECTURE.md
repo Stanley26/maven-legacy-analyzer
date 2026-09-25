@@ -6,11 +6,15 @@
 
 Pour chaque POM valide, appeler le wrapper le plus proche depuis son propre dossier, avec `-B -N -f <POM absolu>`. Passer les settings/JDK/profils configurés explicitement, sans remplacer les paramètres propres au wrapper. Conserver la configuration du projet. Les goals d'analyse et les fichiers de sortie sont distincts ; un échec d'un goal n'efface pas les données de l'autre.
 
-Les fichiers de preuve sont écrits dans un dossier neuf, sous `evidence/<empreinte du chemin du POM>/`. Cela évite les collisions et la réutilisation accidentelle d'un résultat d'une ancienne analyse. Les processus enfants sont arrêtés au timeout.
+Par défaut, les sorties sont écrites dans `reports/scan-<date>/`, sous le dossier de l'analyseur, indépendamment du dossier courant du terminal. `--output` garde la priorité lorsqu'il est fourni. Un dossier neuf évite la réutilisation accidentelle d'un ancien résultat.
+
+`ReportLayout` organise les preuves sous `evidence/<projet>/<module>/`. Le module racine est nommé `root` ; les composants d'un chemin imbriqué sont joints par `--`. Les noms sont normalisés pour les systèmes de fichiers et les collisions sont désambiguïsées avec des suffixes numériques, sans hash opaque. Les liens sont relatifs au dossier du rapport et restent valides lorsque l'ensemble du rapport est déplacé. Les processus enfants sont arrêtés au timeout.
 
 ## Données
 
 `analysis.json`, version de schéma `0.1`, contient : racine, mode, date, modules, erreurs de découverte, consommateurs internes et compteurs. Chaque module contient déclarations brutes, modèle effectif éventuel, dépendances sélectionnées avec chemins, contexte, invocations, preuves et anomalies.
+
+Les champs `projectName` et `modulePath` portent le nom du dossier projet et le chemin du POM relatif à ce projet. Leur assemblage fournit le titre HTML même pour un scan d'un seul dépôt. `id` reste relatif à la racine du scan pour préserver les correspondances entre modules et consommateurs.
 
 L'origine d'une version effective est reprise du commentaire Maven lorsqu'il existe. Les numéros de ligne des déclarations brutes désignent le POM d'origine ; ceux du modèle effectif désignent le fichier effectif généré. `origin` contient la localisation d'origine fournie par Maven.
 

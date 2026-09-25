@@ -24,6 +24,8 @@ public final class Model {
     public static final class Module {
         public String id;
         public String repository;
+        public String projectName;
+        public String modulePath;
         public String pomPath;
         public String wrapper;
         public String status = "INVENTORIED";
@@ -34,6 +36,9 @@ public final class Model {
         public List<Invocation> invocations = new ArrayList<>();
         public Map<String, Object> context = new LinkedHashMap<>();
         public Map<String, String> evidence = new LinkedHashMap<>();
+        public String displayName() {
+            return projectName == null || modulePath == null ? id : projectName + "/" + modulePath;
+        }
     }
     public record Consumer(String module, String dependency, String scope, boolean direct, List<String> path) {}
     public record Report(String schemaVersion, String generatedAt, String root, String mode,

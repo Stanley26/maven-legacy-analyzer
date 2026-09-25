@@ -29,6 +29,8 @@ public final class Scanner {
                 var relative = root.relativize(file);
                 Path repository = singleRepository || relative.getNameCount() == 1 ? root : root.resolve(relative.getName(0));
                 module.repository = repository.toString();
+                module.projectName = repository.getFileName() == null ? "project" : repository.getFileName().toString();
+                module.modulePath = repository.relativize(file).toString().replace('\\', '/');
                 Path wrapper = findWrapper(file.getParent(), repository);
                 module.wrapper = wrapper == null ? null : wrapper.toString();
                 if (relative.toString().replace('\\', '/').contains("/target/"))

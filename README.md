@@ -9,7 +9,7 @@ Prérequis : JDK 21. Maven est téléchargé par le wrapper de ce dépôt au pre
 ```powershell
 .\mvnw.cmd verify
 java -jar target/maven-legacy-analyzer.jar --help
-java -jar target/maven-legacy-analyzer.jar scan C:/projects --output C:/analyses/scan-001
+java -jar target/maven-legacy-analyzer.jar scan C:/projects
 ```
 
 Linux/macOS : remplacer `.\mvnw.cmd` par `./mvnw`.
@@ -17,10 +17,27 @@ Linux/macOS : remplacer `.\mvnw.cmd` par `./mvnw`.
 Pour un inventaire des déclarations sans lancer Maven :
 
 ```powershell
-java -jar target/maven-legacy-analyzer.jar scan C:/projects --inventory-only --output C:/analyses/inventaire-001
+java -jar target/maven-legacy-analyzer.jar scan C:/projects --inventory-only
 ```
 
-Le dossier de sortie doit être neuf ou vide. Les POM des projets ne sont jamais réécrits. Les appels Maven peuvent télécharger dans le cache, exécuter les extensions du projet et produire les effets habituels de son wrapper : utiliser des dépôts de confiance. Aucun `install`, `package` ou `deploy` n'est lancé sur les projets analysés.
+Les rapports sont placés par défaut dans le dossier de l'analyseur, à côté de son `pom.xml` lorsqu'il est lancé depuis le dépôt, ou à côté du JAR pour une distribution portable. L'emplacement ne dépend pas du dossier courant du terminal.
+
+```text
+maven-legacy-analyzer/
+  reports/
+    scan-2026-01-02_03-04-05-000/
+      index.html
+      analysis.json
+      evidence/
+        project-a/
+          root/effective-pom.xml
+          ear/effective-pom.xml
+          common/effective-pom.xml
+```
+
+Chaque analyse crée un dossier daté. Les titres HTML affichent `project-a/ear/pom.xml` et les coordonnées Maven sans ouvrir les détails. `root` représente le POM à la racine du projet ; les chemins imbriqués utilisent `--` (ex. `app--webapp`). Si deux noms normalisés sont identiques, un suffixe numérique les distingue. Les fichiers source `pom.xml` ne sont pas renommés.
+
+`--output <chemin>` permet de choisir un autre dossier, neuf ou vide. Les anciens rapports ne sont pas déplacés ; relancer un scan produit la nouvelle présentation. Les appels Maven peuvent télécharger dans le cache, exécuter les extensions du projet et produire les effets habituels de son wrapper : utiliser des dépôts de confiance. Aucun `install`, `package` ou `deploy` n'est lancé sur les projets analysés.
 
 ## Fonctionnalités de cette version
 
@@ -41,7 +58,7 @@ L'analyseur nécessite Java 21. Le processus Maven de chaque dépôt hérite de 
 Par défaut, l'outil laisse le wrapper, `.mvn/maven.config` et Maven appliquer leurs settings habituels. **Un `settings.xml` simplement posé dans un dossier n'est pas automatiquement sélectionné.** S'il n'est pas déjà référencé par le wrapper/la configuration Maven, déclarer `settings` dans la configuration de l'analyseur. Ne pas doubler une option `--settings` déjà définie avec une autre valeur.
 
 ```powershell
-java -jar target/maven-legacy-analyzer.jar scan C:/projects --config config/scan.local.json --output C:/analyses/scan-002
+java -jar target/maven-legacy-analyzer.jar scan C:/projects --config config/scan.local.json
 ```
 
 Voir [config/example.json](config/example.json). Les clés de `repositories` sont les chemins relatifs depuis la racine scannée ; pour scanner un dépôt unique, utiliser `"."`. Les chemins `settings`, `globalSettings` et `javaHome` relatifs sont résolus depuis la racine de ce dépôt. Les paramètres du dépôt remplacent ceux de `defaults` ; listes et dictionnaires sont remplacés entièrement.

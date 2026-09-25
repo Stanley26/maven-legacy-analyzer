@@ -15,6 +15,13 @@ public class Verify {
         boolean alternativeVersion = false, provided = false, origin = false, alignmentDifference = false;
         for (Object module : (Iterable<?>) modules) {
             if (!asText.invoke(path.invoke(module, "status")).equals("RESOLVED")) throw new AssertionError("Incomplete Maven collection: " + module);
+            String project = (String) asText.invoke(path.invoke(module, "projectName"));
+            if (project.isBlank()) throw new AssertionError("Missing project label");
+            for (Object evidence : (Iterable<?>) path.invoke(module, "evidence")) {
+                String link = (String) asText.invoke(evidence);
+                if (!link.startsWith("evidence/" + project + "/") || !Files.isRegularFile(Path.of(args[0]).getParent().resolve(link)))
+                    throw new AssertionError("Missing or unreadable evidence link: " + link);
+            }
             for (Object dependency : (Iterable<?>) path.invoke(module, "dependencies")) {
                 Object coordinate = path.invoke(dependency, "coordinate");
                 alternativeVersion |= asText.invoke(path.invoke(coordinate, "artifactId")).equals("component-core") && asText.invoke(path.invoke(coordinate, "version")).equals("2.0.0");

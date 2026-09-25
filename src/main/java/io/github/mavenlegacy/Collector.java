@@ -5,7 +5,7 @@ import java.util.*;
 import static io.github.mavenlegacy.Model.*;
 
 public final class Collector {
-    public void collect(Model.Module module, Configuration.Options options, Path evidenceDirectory, boolean offline) {
+    public void collect(Model.Module module, Configuration.Options options, Path evidenceDirectory, Path reportDirectory, boolean offline) {
         if (module.declared == null) return;
         if (module.issues.stream().anyMatch(i -> i.code().equals("GENERATED_LOCATION"))) return;
         if (module.wrapper == null) {
@@ -33,15 +33,15 @@ public final class Collector {
             if (offline) { effectiveArgs.add("-o"); treeArgs.add("-o"); }
             collectOne(module, runner, wrapper, pom, repo, options,
                     "org.apache.maven.plugins:maven-help-plugin:" + options.helpPluginVersion() + ":effective-pom",
-                    effectiveArgs, evidenceDirectory.resolve("effective-pom.log"), () -> {
+                    effectiveArgs, evidenceDirectory.resolve("effective-pom.log"), reportDirectory, () -> {
                         module.effective = new PomReader().read(effective);
-                        module.evidence.put("effectivePom", relativeEvidence(evidenceDirectory, effective));
+                        module.evidence.put("effectivePom", ReportLayout.relativeLink(reportDirectory, effective));
                     });
             collectOne(module, runner, wrapper, pom, repo, options,
                     "org.apache.maven.plugins:maven-dependency-plugin:" + options.dependencyPluginVersion() + ":tree",
-                    treeArgs, evidenceDirectory.resolve("dependency-tree.log"), () -> {
+                    treeArgs, evidenceDirectory.resolve("dependency-tree.log"), reportDirectory, () -> {
                         module.dependencies = new DependencyTreeReader().read(tree);
-                        module.evidence.put("dependencyTree", relativeEvidence(evidenceDirectory, tree));
+                        module.evidence.put("dependencyTree", ReportLayout.relativeLink(reportDirectory, tree));
                     });
             boolean resolved = module.effective != null && module.evidence.containsKey("dependencyTree");
             module.status = resolved ? "RESOLVED" : "PARTIAL";
@@ -51,16 +51,13 @@ public final class Collector {
             module.issues.add(new Issue("COLLECTION_ERROR", ex.getClass().getSimpleName() + ": " + ex.getMessage()));
         }
     }
-    private static String relativeEvidence(Path directory, Path file) {
-        return "evidence/" + directory.getFileName() + "/" + file.getFileName();
-    }
     @FunctionalInterface private interface ReadResult { void read() throws Exception; }
     private static void collectOne(Model.Module module, MavenRunner runner, Path wrapper, Path pom, Path repo,
-                                   Configuration.Options options, String goal, List<String> args, Path log, ReadResult read) {
+                                   Configuration.Options options, String goal, List<String> args, Path log, Path reportDirectory, ReadResult read) {
         try {
             var invocation = runner.run(wrapper, pom, repo, options, goal, args, log);
             module.invocations.add(invocation);
-            module.evidence.put(log.getFileName().toString(), relativeEvidence(log.getParent(), log));
+            module.evidence.put(log.getFileName().toString(), ReportLayout.relativeLink(reportDirectory, log));
             if (invocation.exitCode() == 0 && !invocation.timedOut()) read.read();
             else module.issues.add(new Issue(invocation.timedOut() ? "MAVEN_TIMEOUT" : "MAVEN_FAILURE",
                     goal + ": exit=" + invocation.exitCode() + ". See local evidence log."));
