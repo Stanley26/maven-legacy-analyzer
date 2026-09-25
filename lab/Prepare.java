@@ -30,9 +30,9 @@ public class Prepare {
         publish("com.example.parents", "application-parent", "7", parent("com.example.parents", "base-parent", "12") + "<packaging>pom</packaging>");
         publish("com.example.platform", "platform-bom", "3", "<packaging>pom</packaging><properties><server.version>1.0</server.version></properties><dependencyManagement><dependencies>"
                 + dep("com.example.server", "server-api", "${server.version}", "provided") + "</dependencies></dependencyManagement>");
-        publish("com.example.parents", "bom-parent", "1", "<packaging>pom</packaging><properties><platform-bom.version>3</platform-bom.version></properties>");
-        publish("com.example.platform", "nested-bom", "1", parent("com.example.parents", "bom-parent", "1")
-                + "<packaging>pom</packaging><dependencyManagement><dependencies><dependency><groupId>com.example.platform</groupId><artifactId>platform-bom</artifactId><version>${platform-bom.version}</version><type>pom</type><scope>import</scope></dependency></dependencies></dependencyManagement>");
+        publish("com.example.parents", "bom-parent", "2", "<packaging>pom</packaging><properties><platform-bom.group>com.example.platform</platform-bom.group><platform-bom.artifact>platform-bom</platform-bom.artifact><platform-bom.version>3</platform-bom.version></properties>");
+        publish("com.example.platform", "nested-bom", "2", parent("com.example.parents", "bom-parent", "2")
+                + "<packaging>pom</packaging><dependencyManagement><dependencies><dependency><groupId>${platform-bom.group}</groupId><artifactId>${platform-bom.artifact}</artifactId><version>${platform-bom.version}</version><type>pom</type><scope>import</scope></dependency></dependencies></dependencyManagement>");
         publish("com.example.platform", "catalog-bom", "1", "<packaging>pom</packaging>");
 
         String settings = """
@@ -58,7 +58,7 @@ public class Prepare {
                 <dependencies>
                 """ + dep("com.example.shared", "shared-utils", "5.4", "") + dep("com.example.components", "component-core", "", "") + "</dependencies>"));
         write("projects/application-a/unlisted/very/deep/module/pom.xml", project("com.example.apps", "unlisted", "1.0",
-                "<properties><server.version>9.0</server.version></properties><dependencyManagement><dependencies><dependency><groupId>com.example.platform</groupId><artifactId>nested-bom</artifactId><version>1</version><type>pom</type><scope>import</scope></dependency></dependencies></dependencyManagement><dependencies>"
+                "<properties><server.version>9.0</server.version></properties><dependencyManagement><dependencies><dependency><groupId>com.example.platform</groupId><artifactId>nested-bom</artifactId><version>2</version><type>pom</type><scope>import</scope></dependency></dependencies></dependencyManagement><dependencies>"
                         + dep("com.example.server", "server-api", "", "provided") + "</dependencies>"
                         + "<profiles><profile><id>catalog-only</id><dependencyManagement><dependencies><dependency><groupId>com.example.platform</groupId><artifactId>catalog-bom</artifactId><version>1</version><type>pom</type><scope>import</scope></dependency></dependencies></dependencyManagement></profile></profiles>"));
         write("projects/application-b/pom.xml", project("com.example.apps", "application-b", "1.0", parent("com.example.parents", "base-parent", "12")

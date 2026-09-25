@@ -15,12 +15,17 @@ public class Verify {
         boolean alternativeVersion = false, provided = false, origin = false, alignmentDifference = false;
         boolean inheritedSource = false, propertyOverride = false, bomProperty = false, activeProfile = false;
         var sourceArtifacts = new java.util.HashSet<String>();
-        boolean inactiveImport = false;
+        boolean inactiveImport = false, batchedCoordinates = false;
         for (Object module : (Iterable<?>) modules) {
             if (!asText.invoke(path.invoke(module, "status")).equals("RESOLVED")) throw new AssertionError("Incomplete Maven collection: " + module);
             String project = (String) asText.invoke(path.invoke(module, "projectName"));
             if (project.isBlank()) throw new AssertionError("Missing project label");
             Object context = path.invoke(module, "context");
+            Object graph = path.invoke(context, "pomGraph");
+            if (asText.invoke(path.invoke(graph, "coordinateProperties")).equals("3")) {
+                if (!asText.invoke(path.invoke(graph, "coordinateEvaluationBatches")).equals("1")) throw new AssertionError("Coordinate properties were not batched");
+                batchedCoordinates = true;
+            }
             if (!asText.invoke(path.invoke(context, "provenanceCollection")).equals("COLLECTED")) throw new AssertionError("Incomplete provenance collection: " + module);
             if (((String) asText.invoke(path.invoke(context, "mavenRuntime"))).isBlank() || ((String) asText.invoke(path.invoke(context, "javaRuntime"))).isBlank())
                 throw new AssertionError("Missing actual Maven/JDK context");
@@ -49,6 +54,7 @@ public class Verify {
                 String link = (String) asText.invoke(evidence);
                 if (!link.startsWith("evidence/" + project + "/") || !Files.isRegularFile(Path.of(args[0]).getParent().resolve(link)))
                     throw new AssertionError("Missing or unreadable evidence link: " + link);
+                if (link.endsWith(".log") && !link.contains("/logs/")) throw new AssertionError("Log outside logs directory: " + link);
             }
             for (Object dependency : (Iterable<?>) path.invoke(module, "dependencies")) {
                 Object coordinate = path.invoke(dependency, "coordinate");
@@ -62,6 +68,7 @@ public class Verify {
         }
         if (!alternativeVersion || !provided || !origin || !alignmentDifference) throw new AssertionError("Missing override, provided scope, configured alignment difference or Maven origin evidence");
         if (!inheritedSource || !propertyOverride || !bomProperty || !activeProfile) throw new AssertionError("Missing parent source, property override, BOM property isolation or actual active profile");
+        if (!batchedCoordinates) throw new AssertionError("Missing real Maven coordinate batch evaluation");
         if (!sourceArtifacts.containsAll(java.util.List.of("nested-bom", "bom-parent", "platform-bom", "catalog-bom", "shared-utils", "platform-core", "component-context", "component-core", "server-api")) || !inactiveImport)
             throw new AssertionError("Missing recursive raw POM graph, dependency POM or inactive-profile import: " + sourceArtifacts);
         if ((int) size.invoke(path.invoke(tree, "internalConsumers")) < 2) throw new AssertionError("Missing internal consumers");

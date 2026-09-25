@@ -10,7 +10,7 @@ public final class ProvenanceCollector {
     public void collect(Model.Module module, Configuration.Options options, Path directory, Path report, boolean offline) throws Exception {
         snapshot(module, module.evidence.containsKey("rawPom") ? report.resolve(module.evidence.get("rawPom")) : Path.of(module.pomPath), module.effective == null ? module.declared.coordinate() : module.effective.coordinate(),
                 "MODULE", directory, report);
-        readRuntime(module, directory.resolve("effective-pom.log"));
+        readRuntime(module, directory.resolve("logs/effective-pom.log"));
         if (module.effective == null) return;
         Path profiles = directory.resolve("active-profiles.txt");
         invoke(module, options, directory, report, offline, "active-profiles", "active-profiles",
@@ -69,7 +69,7 @@ public final class ProvenanceCollector {
 
     private static String evaluate(Model.Module module, Configuration.Options options, Path directory, Path report,
                                    boolean offline, String expression, String name) {
-        Path output = directory.resolve(name + ".txt");
+        Path output = directory.resolve("logs").resolve(name + ".txt");
         String[] value = { null };
         invoke(module, options, directory, report, offline, "evaluate", name,
                 List.of("-Dexpression=" + expression, "-Doutput=" + output), () -> {
@@ -86,7 +86,7 @@ public final class ProvenanceCollector {
         if (offline) parameters.add("-o");
         Collector.collectOne(module, new MavenRunner(), Path.of(module.wrapper), Path.of(module.pomPath),
                 Path.of(module.repository), options, "org.apache.maven.plugins:maven-help-plugin:" + options.helpPluginVersion() + ":" + goal,
-                parameters, directory.resolve(name + ".log"), report, read);
+                parameters, directory.resolve("logs").resolve(name + ".log"), report, read);
     }
 
     static Coordinate identity(Pom model) {

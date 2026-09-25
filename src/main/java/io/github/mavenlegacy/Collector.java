@@ -33,13 +33,13 @@ public final class Collector {
             if (offline) { effectiveArgs.add("-o"); treeArgs.add("-o"); }
             collectOne(module, runner, wrapper, pom, repo, options,
                     "org.apache.maven.plugins:maven-help-plugin:" + options.helpPluginVersion() + ":effective-pom",
-                    effectiveArgs, evidenceDirectory.resolve("effective-pom.log"), reportDirectory, () -> {
+                    effectiveArgs, evidenceDirectory.resolve("logs/effective-pom.log"), reportDirectory, () -> {
                         module.effective = new PomReader().read(effective);
                         module.evidence.put("effectivePom", ReportLayout.relativeLink(reportDirectory, effective));
                     });
             collectOne(module, runner, wrapper, pom, repo, options,
                     "org.apache.maven.plugins:maven-dependency-plugin:" + options.dependencyPluginVersion() + ":tree",
-                    treeArgs, evidenceDirectory.resolve("dependency-tree.log"), reportDirectory, () -> {
+                    treeArgs, evidenceDirectory.resolve("logs/dependency-tree.log"), reportDirectory, () -> {
                         module.dependencies = new DependencyTreeReader().read(tree);
                         module.evidence.put("dependencyTree", ReportLayout.relativeLink(reportDirectory, tree));
                     });
@@ -61,6 +61,7 @@ public final class Collector {
     static void collectOne(Model.Module module, MavenRunner runner, Path wrapper, Path pom, Path repo,
                                    Configuration.Options options, String goal, List<String> args, Path log, Path reportDirectory, ReadResult read) {
         try {
+            Files.createDirectories(log.getParent());
             var invocation = runner.run(wrapper, pom, repo, options, goal, args, log);
             module.invocations.add(invocation);
             module.evidence.put(log.getFileName().toString(), ReportLayout.relativeLink(reportDirectory, log));
