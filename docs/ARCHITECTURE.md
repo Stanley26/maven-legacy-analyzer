@@ -6,6 +6,8 @@
 
 Pour chaque POM valide, appeler le wrapper le plus proche depuis son propre dossier, avec `-B -N -f <POM absolu>`. Passer les settings/JDK/profils configurés explicitement, sans remplacer les paramètres propres au wrapper. Conserver la configuration du projet. Les goals d'analyse et les fichiers de sortie sont distincts ; un échec d'un goal n'efface pas les données de l'autre.
 
+`Collector.collectOne` tente d'abord la même commande en mode Maven hors ligne ; la tentative normale n'est exécutée que si le résultat local ne suffit pas. Les deux invocations et leurs logs sont conservés en cas de reprise, mais seule une défaillance finale ajoute un diagnostic d'échec. `--offline` interdit cette reprise. Les `dependency:get` sont déjà conditionnés à l'absence du POM exact dans le cache annoncé par Maven ; ils ne nécessitent pas une seconde vérification hors ligne. Cette politique ne remplace pas les règles de settings/profils du wrapper et ne sélectionne jamais une autre version.
+
 Par défaut, les sorties sont écrites dans `reports/scan-<date>/`, sous le dossier de l'analyseur, indépendamment du dossier courant du terminal. `--output` garde la priorité lorsqu'il est fourni. Un dossier neuf évite la réutilisation accidentelle d'un ancien résultat.
 
 `ReportLayout` organise les preuves sous `evidence/<projet>/<module>/`. Le module racine est nommé `root` ; les composants d'un chemin imbriqué sont joints par `--`. Les noms sont normalisés pour les systèmes de fichiers et les collisions sont désambiguïsées avec des suffixes numériques, sans hash opaque. Les liens sont relatifs au dossier du rapport et restent valides lorsque l'ensemble du rapport est déplacé. Les processus enfants sont arrêtés au timeout.

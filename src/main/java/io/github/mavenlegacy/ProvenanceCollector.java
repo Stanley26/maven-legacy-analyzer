@@ -10,7 +10,9 @@ public final class ProvenanceCollector {
     public void collect(Model.Module module, Configuration.Options options, Path directory, Path report, boolean offline) throws Exception {
         snapshot(module, module.evidence.containsKey("rawPom") ? report.resolve(module.evidence.get("rawPom")) : Path.of(module.pomPath), module.effective == null ? module.declared.coordinate() : module.effective.coordinate(),
                 "MODULE", directory, report);
-        readRuntime(module, directory.resolve("logs/effective-pom.log"));
+        Path runtimeLog = directory.resolve("logs/effective-pom.log");
+        if (!Files.isRegularFile(runtimeLog)) runtimeLog = directory.resolve("logs/effective-pom-cache.log");
+        readRuntime(module, runtimeLog);
         if (module.effective == null) return;
         Path profiles = directory.resolve("active-profiles.txt");
         invoke(module, options, directory, report, offline, "active-profiles", "active-profiles",

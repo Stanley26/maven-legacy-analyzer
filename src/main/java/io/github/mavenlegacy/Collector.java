@@ -19,6 +19,7 @@ public final class Collector {
         module.context.put("requestedProfiles", options.profiles());
         module.context.put("propertyNames", options.properties().keySet());
         module.context.put("offline", offline);
+        module.context.put("resolutionPolicy", offline ? "offline only" : "Maven offline first; online retry only when the local attempt cannot provide the result");
         module.context.put("alignmentGroups", options.alignmentGroups());
         module.context.put("reactorMode", "single module (-N); artifacts from siblings must already be available");
         module.context.put("provenanceCoverage", "Maven origins linked to source snapshots when available; full conflict mediation not reconstructed");
@@ -58,19 +59,31 @@ public final class Collector {
         }
     }
     @FunctionalInterface interface ReadResult { void read() throws Exception; }
-    static void collectOne(Model.Module module, MavenRunner runner, Path wrapper, Path pom, Path repo,
+    static boolean collectOne(Model.Module module, MavenRunner runner, Path wrapper, Path pom, Path repo,
                                    Configuration.Options options, String goal, List<String> args, Path log, Path reportDirectory, ReadResult read) {
+        // dependency:get is called only after the exact requested POM was not found in the reported local repository.
+        if (!args.contains("-o") && !args.contains("--offline") && !goal.endsWith(":get")) {
+            var localArgs = new ArrayList<>(args); localArgs.add("-o");
+            String name = log.getFileName().toString().replaceFirst("\\.log$", "-cache.log");
+            if (attempt(module, runner, wrapper, pom, repo, options, goal, localArgs, log.resolveSibling(name), reportDirectory, read, false)) return true;
+            if (Thread.currentThread().isInterrupted()) return false;
+        }
+        return attempt(module, runner, wrapper, pom, repo, options, goal, args, log, reportDirectory, read, true);
+    }
+    private static boolean attempt(Model.Module module, MavenRunner runner, Path wrapper, Path pom, Path repo,
+                                   Configuration.Options options, String goal, List<String> args, Path log, Path reportDirectory, ReadResult read, boolean reportFailure) {
         try {
             Files.createDirectories(log.getParent());
             var invocation = runner.run(wrapper, pom, repo, options, goal, args, log);
             module.invocations.add(invocation);
             module.evidence.put(log.getFileName().toString(), ReportLayout.relativeLink(reportDirectory, log));
-            if (invocation.exitCode() == 0 && !invocation.timedOut()) read.read();
-            else module.issues.add(new Issue(invocation.timedOut() ? "MAVEN_TIMEOUT" : "MAVEN_FAILURE",
+            if (invocation.exitCode() == 0 && !invocation.timedOut()) { read.read(); return true; }
+            else if (reportFailure) module.issues.add(new Issue(invocation.timedOut() ? "MAVEN_TIMEOUT" : "MAVEN_FAILURE",
                     goal + ": exit=" + invocation.exitCode() + ". See local evidence log."));
         } catch (Exception ex) {
-            module.issues.add(new Issue("MAVEN_ERROR", goal + ": " + ex.getClass().getSimpleName() + ": " + ex.getMessage()));
+            if (reportFailure) module.issues.add(new Issue("MAVEN_ERROR", goal + ": " + ex.getClass().getSimpleName() + ": " + ex.getMessage()));
         }
+        return false;
     }
     private static void detectVersionDifferences(Model.Module module, List<String> groups) {
         for (String group : groups) {

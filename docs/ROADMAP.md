@@ -22,6 +22,7 @@
 - Comparaison factuelle de deux analyses sauvegardées, avec couverture explicite des modules non comparables.
 - Tests d'agrégation sur 400 projets / 100 000 observations et conservation des archives sans Maven.
 - Évaluations de coordonnées regroupées pour limiter les démarrages Maven, avec isolation des modèles externes ; journaux rangés sous `logs/` par module.
+- Collecte automatique hors ligne d'abord, puis reprise réseau si nécessaire, avec le cache configuré dans Maven et correspondance exacte des versions.
 
 ## Terminer la V1 de provenance
 

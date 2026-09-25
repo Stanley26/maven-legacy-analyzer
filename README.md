@@ -124,6 +124,10 @@ Chaque analyse crée un dossier daté. Les titres HTML affichent `project-a/ear/
 
 L'analyseur nécessite Java 21. Le processus Maven de chaque dépôt hérite de l'environnement par défaut ; un `javaHome` distinct peut sélectionner un autre JDK.
 
+**Le comportement par défaut est automatique : local d'abord, réseau ensuite si nécessaire.** Chaque commande de collecte tente d'abord Maven avec `-o`. Si le résultat ne peut pas être obtenu localement, la même commande est relancée avec l'accès aux dépôts configurés. Un échec de cette première tentative reste dans `logs/*-cache.log`, sans être présenté comme une anomalie si la reprise réussit. Les récupérations de POM absents utilisent directement `dependency:get`, après vérification de leur chemin exact dans le cache.
+
+Le cache est celui annoncé par Maven dans le contexte du projet : cela inclut le `<localRepository>` du `settings.xml` utilisateur, les settings explicitement sélectionnés et l'éventuel `-Dmaven.repo.local`. Aucun chemin `.m2/repository` n'est imposé. Une copie de POM exige les coordonnées demandées : `groupId:artifactId:version`. Une autre version disponible localement ne remplace jamais la version recherchée. `--config` n'est pas nécessaire lorsque la configuration Maven habituelle du projet et de l'utilisateur suffit.
+
 Par défaut, l'outil laisse le wrapper, `.mvn/maven.config` et Maven appliquer leurs settings habituels. **Un `settings.xml` simplement posé dans un dossier n'est pas automatiquement sélectionné.** S'il n'est pas déjà référencé par le wrapper/la configuration Maven, déclarer `settings` dans la configuration de l'analyseur. Ne pas doubler une option `--settings` déjà définie avec une autre valeur.
 
 ```powershell
@@ -134,7 +138,7 @@ Voir [config/example.json](config/example.json). Les clés de `repositories` son
 
 Conserver les secrets dans les settings appropriés ; ne pas transmettre de mot de passe en propriété Maven. Les rapports et logs peuvent contenir des noms, chemins et configurations sensibles. Ils sont destinés à une consultation locale et les dossiers de sortie standard sont exclus de Git. L'outil n'exporte pas les effective-settings ni les valeurs des propriétés de commande dans son contexte JSON.
 
-`--offline` passe `-o` à Maven : il faut avoir préparé le cache et la distribution du wrapper auparavant. Un wrapper peut toujours tenter son propre téléchargement initial.
+L'option explicite `--offline` désactive uniquement la reprise réseau : toutes les commandes Maven restent avec `-o`. Elle n'est pas nécessaire pour le comportement automatique local puis réseau. Un wrapper peut toujours nécessiter sa propre distribution au premier lancement ; le cache des artefacts et celui des distributions du wrapper sont distincts.
 
 ## Laboratoire synthétique
 
