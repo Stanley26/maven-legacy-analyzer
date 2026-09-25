@@ -1,0 +1,13 @@
+**/target/
+**/.m2/
+reports/
+analysis-output/
+*.log
+*.local.json
+settings.xml
+!lab/**/settings.xml
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db

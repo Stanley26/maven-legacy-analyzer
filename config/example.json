@@ -1,0 +1,16 @@
+{
+  "defaults": {
+    "timeoutSeconds": 180,
+    "helpPluginVersion": "3.4.1",
+    "dependencyPluginVersion": "3.8.1",
+    "alignmentGroups": ["com.example.components"]
+  },
+  "repositories": {
+    "application-a": {
+      "javaHome": "C:/JDKs/project-jdk",
+      "settings": "settings.xml",
+      "profiles": ["production"],
+      "properties": {}
+    }
+  }
+}
