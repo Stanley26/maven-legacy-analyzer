@@ -89,9 +89,11 @@ public final class PomReader {
             var exclusions = dep.child("exclusions") == null ? List.<String>of()
                     : dep.child("exclusions").all("exclusion").stream().map(e -> e.value("groupId") + ":" + e.value("artifactId")).toList();
             var version = dep.child("version");
-            String origin = version != null && !version.origin.isBlank() ? version.origin : dep.origin;
+            String origin = version == null ? "" : version.origin;
+            var artifact = dep.child("artifactId");
             target.add(new Declaration(coordinate(dep), fallback(dep.value("type"), "jar"), dep.value("classifier"),
-                    fallback(dep.value("scope"), "compile"), Boolean.parseBoolean(dep.value("optional")), exclusions, profile, dep.line, origin));
+                    fallback(dep.value("scope"), "compile"), Boolean.parseBoolean(dep.value("optional")), exclusions, profile, dep.line, origin,
+                    version == null ? 0 : version.line, artifact == null ? "" : artifact.origin));
         }
     }
     private static Coordinate coordinate(Node node) { return new Coordinate(node.value("groupId"), node.value("artifactId"), node.value("version")); }

@@ -7,8 +7,8 @@ import java.util.*;
 import java.util.concurrent.Callable;
 import static io.github.mavenlegacy.Model.*;
 
-@Command(name = "maven-legacy-analyzer", mixinStandardHelpOptions = true, version = "0.1.0-SNAPSHOT",
-        description = "Analyse locale des POM et des dépendances Maven.", subcommands = Main.Scan.class)
+@Command(name = "maven-legacy-analyzer", mixinStandardHelpOptions = true, version = "0.2.0-SNAPSHOT",
+        description = "Analyse locale des POM et des dépendances Maven.", subcommands = { Main.Scan.class, Main.Render.class, Main.Refresh.class })
 public class Main implements Runnable {
     public static void main(String[] args) {
         var cli = new CommandLine(new Main());
@@ -22,6 +22,9 @@ public class Main implements Runnable {
 
     @Command(name = "scan", mixinStandardHelpOptions = true, description = "Scanner un dépôt ou un dossier contenant plusieurs dépôts.")
     public static class Scan implements Callable<Integer> {
+        private final ReportLibrary library;
+        public Scan() { this(null); }
+        Scan(ReportLibrary library) { this.library = library; }
         @Parameters(index = "0", description = "Dossier à analyser") Path root;
         @Option(names = {"-o", "--output"}, description = "Dossier de sortie neuf ou vide ; par défaut : reports/scan-<date> dans le dossier de l'analyseur") Path output;
         @Option(names = "--inventory-only", description = "Lire les POM sans lancer leurs wrappers") boolean inventoryOnly;
@@ -50,10 +53,17 @@ public class Main implements Runnable {
             int index = 0;
             for (var module : scan.modules()) {
                 System.out.printf("[%d/%d] %s%n", ++index, scan.modules().size(), module.displayName());
+                Path moduleEvidence = layout.evidenceDirectory(module);
+                Files.createDirectories(moduleEvidence);
+                Path rawPom = moduleEvidence.resolve("raw-pom.xml");
+                try {
+                    Files.copy(Path.of(module.pomPath), rawPom);
+                    module.evidence.put("rawPom", ReportLayout.relativeLink(output, rawPom));
+                } catch (Exception ex) { module.issues.add(new Issue("RAW_POM_COPY_ERROR", ex.getMessage())); }
                 if (!inventoryOnly) {
                     try {
                         var options = configuration.forRepository(Path.of(module.repository));
-                        new Collector().collect(module, options, layout.evidenceDirectory(module), output, offline);
+                        new Collector().collect(module, options, moduleEvidence, output, offline);
                     } catch (Exception ex) {
                         module.status = "PARTIAL";
                         module.issues.add(new Issue("CONFIG_ERROR", ex.getClass().getSimpleName() + ": " + ex.getMessage()));
@@ -62,9 +72,39 @@ public class Main implements Runnable {
             }
             var report = Analysis.report(root.toString(), inventoryOnly ? "INVENTORY" : "MAVEN", scan.modules(), scan.issues());
             new ReportWriter().write(report, output);
+            try { System.out.println("Accueil : " + (library == null ? ReportLibrary.installed() : library).register(output)); }
+            catch (Exception ex) { System.err.println("Catalogue non mis à jour : " + ex.getMessage()); }
             System.out.println("Rapport : " + output.resolve("index.html"));
             System.out.println("Résultats : " + report.counts());
-            return scan.issues().isEmpty() && scan.modules().stream().noneMatch(m -> m.status.equals("FAILED") || m.status.equals("PARTIAL")) ? 0 : 2;
+            return scan.issues().isEmpty() && scan.modules().stream().noneMatch(m -> m.status.equals("FAILED") || m.status.equals("PARTIAL")
+                    || "PARTIAL".equals(m.context.get("provenanceCollection")) || m.issues.stream().anyMatch(i -> i.code().equals("RAW_POM_COPY_ERROR"))) ? 0 : 2;
+        }
+    }
+
+    @Command(name = "report", mixinStandardHelpOptions = true, description = "Régénérer le HTML depuis une analyse sauvegardée, sans lancer Maven.")
+    public static class Render implements Callable<Integer> {
+        @Parameters(index = "0", description = "Dossier du rapport ou fichier analysis.json") Path input;
+        @Option(names = {"-o", "--output"}, description = "Copier l'analyse dans un dossier neuf avant de régénérer ; sinon mettre à jour son HTML sur place") Path output;
+        public Integer call() throws Exception {
+            Path report = new SavedReports().render(input.toAbsolutePath(), output);
+            System.out.println("Rapport régénéré sans Maven : " + report.resolve("index.html"));
+            System.out.println("Accueil : " + ReportLibrary.installed().register(report));
+            return 0;
+        }
+    }
+
+    @Command(name = "refresh-reports", mixinStandardHelpOptions = true, description = "Régénérer tous les rapports du catalogue et du dossier reports, sans lancer Maven.")
+    public static class Refresh implements Callable<Integer> {
+        public Integer call() throws Exception {
+            var library = ReportLibrary.installed();
+            int failures = 0, completed = 0;
+            for (Path report : library.reports()) {
+                try { new SavedReports().render(report, null); completed++; System.out.println("Régénéré : " + report); }
+                catch (Exception ex) { failures++; System.err.println("Échec : " + report + " : " + ex.getMessage()); }
+            }
+            System.out.println("Accueil : " + library.register(null));
+            System.out.printf("%d rapport(s) régénéré(s), %d échec(s). Aucun appel Maven.%n", completed, failures);
+            return failures == 0 ? 0 : 2;
         }
     }
 }

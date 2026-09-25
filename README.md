@@ -2,6 +2,8 @@
 
 Analyseur local Java 21 pour explorer les dépendances de projets Maven. Il découvre les POM à toute profondeur, utilise le **wrapper du projet analysé** et produit des preuves Maven, un inventaire JSON et un rapport HTML consultable sans serveur.
 
+Ouvrir **`index.html` à la racine de l'analyseur** pour retrouver les analyses enregistrées. Cette page est créée après un scan ou une régénération. Elle et le catalogue local sont exclus de Git.
+
 ## Démarrer
 
 Prérequis : JDK 21. Maven est téléchargé par le wrapper de ce dépôt au premier lancement.
@@ -24,6 +26,7 @@ Les rapports sont placés par défaut dans le dossier de l'analyseur, à côté 
 
 ```text
 maven-legacy-analyzer/
+  index.html                 # accueil de toutes les analyses
   reports/
     scan-2026-01-02_03-04-05-000/
       index.html
@@ -34,6 +37,47 @@ maven-legacy-analyzer/
           ear/effective-pom.xml
           common/effective-pom.xml
 ```
+
+## Réutiliser une analyse après une mise à jour
+
+Conserver le dossier complet de chaque rapport, avec `analysis.json` et `evidence/`. Après avoir mis à jour et reconstruit l'analyseur, régénérer les pages avec :
+
+```powershell
+.\mvnw.cmd verify
+java -jar target/maven-legacy-analyzer.jar refresh-reports
+```
+
+`refresh-reports` retrouve les analyses du dossier `reports/` et celles enregistrées dans le catalogue local. **Cette commande ne lance aucun wrapper/Maven, ne nécessite aucun accès réseau et ne lit pas les dépôts sources.** Elle conserve les JSON, XML et logs du scan ; elle régénère uniquement les pages HTML. La compilation de l'analyseur, elle, utilise son propre wrapper et peut nécessiter Maven Central.
+
+Pour un ancien rapport situé ailleurs, l'enregistrer et régénérer ses pages sur place :
+
+```powershell
+java -jar target/maven-legacy-analyzer.jar report C:/analyses/scan-existant
+```
+
+Ou en importer une copie complète dans l'analyseur :
+
+```powershell
+java -jar target/maven-legacy-analyzer.jar report C:/analyses/scan-existant --output reports/scan-importe
+```
+
+Le dossier de copie doit être neuf ou vide. Les formats de données `0.1` et `0.2` sont pris en charge, y compris les anciens chemins de preuves. Les nouvelles vues exploitent les preuves déjà sauvegardées : elles ne peuvent pas recréer les parents, profils ou contextes absents d'un ancien scan. Le rapport conserve sa date d'analyse et indique qu'il s'agit d'une présentation régénérée. Pour observer des changements dans les projets, lancer un nouveau `scan`.
+
+Les liens entre les pages d'un rapport sont relatifs : déplacer le dossier complet conserve ces liens. L'accueil référence aussi les rapports externes par leur emplacement local ; après leur déplacement, les enregistrer à leur nouvelle adresse avec `report`.
+
+## Pourquoi cette version ?
+
+Chaque dépendance résolue possède un lien vers une explication : chemin direct ou transitif, version effective, déclaration versionnée locale/héritée/gérée lorsqu'elle est identifiable, et propriété effective éventuelle. Les preuves XML s'ouvrent à la ligne concernée. Les noms, types et classifiers sont pris en compte ; les origines ambiguës restent signalées.
+
+Les nouveaux scans conservent tous les POM bruts locaux découverts. La collecte Maven ajoute les POM des dépendances résolues et parcourt récursivement les parents et les imports de BOM présents dans les modèles bruts. Un BOM reste ainsi collecté même si ses entrées ont été remplacées dans le modèle effectif. Les imports déclarés dans les profils sont conservés avec leur profil, sans être présentés comme actifs. Chaque source exploitable est copiée sous `evidence/<projet>/<module>/sources/`, avec une empreinte SHA-256.
+
+Maven fournit le cache local utilisé. Lorsqu'un POM manque dans ce cache, l'analyseur demande `dependency:get` au **wrapper du projet, avec les mêmes settings, profils, propriétés et JDK**. Les miroirs, dépôts et accès Artifactory configurés restent gérés par Maven. L'analyseur ne parcourt pas le catalogue complet d'un serveur et ne demande aucun identifiant supplémentaire. Les coordonnées contenant des propriétés sont évaluées par Maven dans le contexte du consommateur pour l'héritage, ou du modèle externe pour les imports propres à ce modèle. Un résultat non résolu reste signalé, sans version supposée.
+
+`pomRelations` décrit chaque relation et son résultat (`COLLECTED`, `UNRESOLVED`, `UNAVAILABLE`). Les cycles et références répétées sont dédupliqués par coordonnées dans la collecte d'un module. Un parent dont Maven n'expose pas le chemin est recherché par coordonnées dans le cache et marqué `PARENT_CACHE`. Les sources `*_MAVEN` ont nécessité une demande de récupération au wrapper. Une copie du cache ou un téléchargement n'atteste pas à lui seul que le serveur était l'origine initiale d'un artefact déjà résolu.
+
+Le rapport sépare l'origine de la déclaration `${version}` et celle de la propriété effective. Il indique les redéfinitions observées dans les ancêtres copiés. Les propriétés internes d'un BOM restent dans le contexte de ce modèle ; une propriété homonyme du consommateur ne lui est pas appliquée. Les cas non démontrés et la médiation complète restent explicitement ouverts.
+
+Le contexte contient les versions Maven/JDK annoncées lors de la collecte effective et la sortie de `help:active-profiles`, distincte des profils demandés. Ces collectes ajoutent des invocations Maven. Un échec de provenance ne supprime pas l'effective POM ou l'arbre déjà obtenus ; `context.provenanceCollection` indique `PARTIAL` et les erreurs restent visibles.
 
 Chaque analyse crée un dossier daté. Les titres HTML affichent `project-a/ear/pom.xml` et les coordonnées Maven sans ouvrir les détails. `root` représente le POM à la racine du projet ; les chemins imbriqués utilisent `--` (ex. `app--webapp`). Si deux noms normalisés sont identiques, un suffixe numérique les distingue. Les fichiers source `pom.xml` ne sont pas renommés.
 
@@ -81,11 +125,12 @@ Le script construit l'analyseur, génère le laboratoire dans `target`, lance un
 
 ## Ce qui n'est pas encore implémenté
 
-Cette première version fournit l'inventaire et les preuves de résolution ; certaines analyses avancées restent à implémenter.
+L'analyseur fournit l'inventaire et les preuves de résolution ; certaines analyses avancées restent à implémenter.
 
-- Les commentaires d'origine de l'effective POM sont exploités. L'historique complet des candidats perdants, des overrides et des propriétés des parents/BOM externes n'est **pas** encore reconstruit. Les déclarations locales brutes restent disponibles.
+- L'historique complet des candidats perdants, des overrides, des exclusions et des substitutions n'est **pas** reconstruit. Les sources copiées et les origines d'éléments expliquent uniquement les faits disponibles. Les propriétés de commande ne font pas l'objet d'un historique complet de priorité.
 - Les BOM ne sont pas confondus avec des bibliothèques consommées. La version d'une propriété locale n'est pas supposée remplacer une propriété interne à un BOM importé.
-- Les profils bruts sont inventoriés, sans être présentés comme actifs. Le résultat effectif est celui de Maven ; le détail des profils activés implicitement reste à collecter.
+- Les profils bruts sont inventoriés séparément de la liste des profils actifs fournie par Maven. Les raisons détaillées de leur activation ne sont pas reconstituées.
+- Les sources dont les coordonnées utilisent des expressions non résolues, notamment dans des profils inactifs, certains layouts de cache/SNAPSHOT ou des POM inaccessibles peuvent rester incomplètes. Les échecs sont conservés dans le graphe. La collecte inclut les POM du graphe sélectionné ; elle ne cherche pas toutes les versions évincées ni les POM des plugins de build.
 - Chaque POM est interrogé avec `-N`, hors résolution complète du reactor. Les dépendances entre modules doivent déjà être disponibles dans les dépôts/cache ; sinon le résultat est partiel. Un mode reactor est prévu.
 - Pas de simulation de mise à jour, de modification des POM, de suppression automatique des overrides, d'inspection des archives ni de preuve runtime.
 - Un artefact Maven local qui a le même GAV qu'un artefact publié n'est pas forcément le même binaire. Les consommateurs sont des correspondances d'identité Maven, pas une preuve de provenance Git.

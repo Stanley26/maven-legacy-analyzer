@@ -18,6 +18,6 @@ public final class Analysis {
                     dependency.coordinate().gav(), dependency.scope(), dependency.path().size() == 2, dependency.path()));
         var counts = new TreeMap<String, Long>();
         modules.forEach(m -> counts.merge(m.status, 1L, Long::sum));
-        return new Report("0.1", Instant.now().toString(), root, mode, modules, issues, consumers, counts);
+        return new Report("0.2", Instant.now().toString(), root, mode, modules, issues, consumers, counts);
     }
 }

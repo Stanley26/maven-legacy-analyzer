@@ -1,6 +1,7 @@
 **/target/
 **/.m2/
 reports/
+/index.html
 analysis-output/
 *.log
 *.local.json

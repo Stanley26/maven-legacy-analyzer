@@ -57,7 +57,7 @@ public final class ReportLayout {
         return candidate;
     }
 
-    private static String segment(String value, String fallback) {
+    static String segment(String value, String fallback) {
         String normalized = Normalizer.normalize(value == null ? "" : value, Normalizer.Form.NFD)
                 .replaceAll("\\p{M}+", "").replaceAll("[^A-Za-z0-9._-]+", "-")
                 .replaceAll("^[. -]+|[. -]+$", "");

@@ -12,7 +12,8 @@ public final class Model {
     }
     public record Parent(Coordinate coordinate, String relativePath) {}
     public record Declaration(Coordinate coordinate, String type, String classifier, String scope,
-                              boolean optional, List<String> exclusions, String profile, int line, String origin) {}
+                              boolean optional, List<String> exclusions, String profile, int line, String origin,
+                              int versionLine, String declarationOrigin) {}
     public record Property(String name, String value, String profile, int line, String origin) {}
     public record Pom(Coordinate coordinate, String packaging, Parent parent, List<String> modules,
                       List<Property> properties, List<Declaration> dependencies, List<Declaration> managed,
@@ -21,6 +22,12 @@ public final class Model {
                                      boolean optional, List<String> path) {}
     public record Issue(String code, String message) {}
     public record Invocation(String goal, int exitCode, boolean timedOut, String log, long durationMillis) {}
+    public record SourcePom(Coordinate coordinate, String kind, String originalPath, String evidence,
+                            String sha256, Pom model) {}
+    public record Fact(String kind, String text, String source, int line) {}
+    public record VersionExplanation(ResolvedDependency dependency, String coverage, List<Fact> facts,
+                                     List<String> limitations) {}
+    public record PomRelation(String from, Coordinate target, String relation, String profile, String status, String detail) {}
     public static final class Module {
         public String id;
         public String repository;
@@ -36,6 +43,9 @@ public final class Model {
         public List<Invocation> invocations = new ArrayList<>();
         public Map<String, Object> context = new LinkedHashMap<>();
         public Map<String, String> evidence = new LinkedHashMap<>();
+        public List<SourcePom> sources = new ArrayList<>();
+        public List<VersionExplanation> explanations = new ArrayList<>();
+        public List<PomRelation> pomRelations = new ArrayList<>();
         public String displayName() {
             return projectName == null || modulePath == null ? id : projectName + "/" + modulePath;
         }

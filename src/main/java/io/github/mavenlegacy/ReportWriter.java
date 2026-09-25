@@ -10,6 +10,10 @@ public final class ReportWriter {
     public void write(Report report, Path output) throws Exception {
         var mapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
         mapper.writeValue(output.resolve("analysis.json").toFile(), report);
+        render(report, output);
+    }
+    public void render(Report report, Path output) throws Exception {
+        for (var module : report.modules()) new ProvenanceWriter().write(module, output);
         Files.writeString(output.resolve("index.html"), html(report), StandardCharsets.UTF_8);
     }
     String html(Report report) {
@@ -28,12 +32,21 @@ public final class ReportWriter {
             }
             body.append("<p>Wrapper : ").append(escape(module.wrapper == null ? "absent" : module.wrapper)).append("</p>");
             for (var issue : module.issues) body.append("<p class='issue'><strong>").append(escape(issue.code())).append("</strong> — ").append(escape(issue.message())).append("</p>");
-            for (var entry : module.evidence.entrySet()) body.append("<a class='evidence' href='").append(escape(entry.getValue())).append("'>").append(escape(entry.getKey())).append("</a> ");
+            for (var entry : module.evidence.entrySet()) body.append("<a class='evidence' href='").append(escape(entry.getValue())).append("'>")
+                    .append(escape(entry.getKey().equals("versionProvenance") ? "Origines des versions et POM collectés" : entry.getKey())).append("</a> ");
             if (!module.dependencies.isEmpty()) {
                 body.append("<h3>Dépendances résolues par Maven</h3><table><thead><tr><th>Composant</th><th>Version</th><th>Scope</th><th>Chemin d’introduction</th></tr></thead><tbody>");
-                for (var dep : module.dependencies) body.append("<tr><td>").append(escape(dep.coordinate().ga())).append("</td><td>")
+                int dependencyIndex = 0;
+                for (var dep : module.dependencies) {
+                    dependencyIndex++;
+                    body.append("<tr><td>").append(escape(dep.coordinate().ga())).append("</td><td>")
                         .append(escape(dep.coordinate().version())).append("</td><td>").append(escape(dep.scope())).append("</td><td>")
-                        .append(escape(String.join(" → ", dep.path()))).append("</td></tr>");
+                        .append(escape(String.join(" → ", dep.path())));
+                    if (module.evidence.containsKey("versionProvenance")) body.append("<br><a href='")
+                            .append(escape(module.evidence.get("versionProvenance"))).append("#dependency-").append(dependencyIndex)
+                            .append("'>Pourquoi cette version ?</a>");
+                    body.append("</td></tr>");
+                }
                 body.append("</tbody></table>");
             }
             if (pom != null) {
@@ -57,6 +70,7 @@ public final class ReportWriter {
             .coordinates{display:block;margin:8px 0 0 26px;font-size:13px;color:#566675;overflow-wrap:anywhere}
             </style></head><body><div class="eyebrow">INVENTAIRE · RÉSOLUTION · PREUVES</div><h1>Maven Legacy Analyzer</h1>
             <p class="muted">Analyse locale — {{date}}</p><p><strong>{{total}} POM</strong> · {{counts}}</p>
+            {{presentation}}
             <p class="note">Ce rapport décrit les déclarations et les résultats Maven collectés. Les archives produites et le runtime ne sont pas vérifiés. Les origines de l’effective POM constituent des preuves partielles ; l’historique complet des overrides reste à reconstruire.</p>
             {{issues}}<p><a href="analysis.json">Ouvrir les données JSON</a></p><label for="filter">Rechercher un projet, une dépendance ou une version</label>
             <input id="filter" type="search" placeholder="component-core, application-a, 1.0.0…"><p id="empty">Aucun résultat.</p>
@@ -64,6 +78,8 @@ public final class ReportWriter {
             <table><thead><tr><th>Composant</th><th>Module consommateur</th><th>Relation</th></tr></thead><tbody>{{consumers}}</tbody></table>
             <script>document.getElementById('filter').addEventListener('input',e=>{const q=e.target.value.toLowerCase();let n=0;document.querySelectorAll('.module').forEach(el=>{el.hidden=!el.textContent.toLowerCase().includes(q);if(!el.hidden)n++;});document.getElementById('empty').style.display=n?'none':'block';});</script></body></html>
             """.replace("{{date}}", escape(report.generatedAt())).replace("{{total}}", Integer.toString(report.modules().size()))
+                .replace("{{presentation}}", report.modules().stream().anyMatch(m -> m.context.containsKey("presentationMode"))
+                        ? "<p class='note'>Présentation régénérée depuis une analyse sauvegardée, sans appel Maven. La date et les résultats restent ceux du scan d'origine. Les informations absentes de ce scan restent signalées comme non collectées.</p>" : "")
                 .replace("{{counts}}", escape(report.counts().toString())).replace("{{issues}}", globalIssues)
                 .replace("{{modules}}", body).replace("{{consumers}}", consumers);
     }

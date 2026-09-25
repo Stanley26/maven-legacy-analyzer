@@ -19,7 +19,7 @@ class ReportNamingTest {
             Files.writeString(pom, "<project><groupId>com.example</groupId><artifactId>sample</artifactId><version>1.0</version></project>");
         }
         Path output = root.resolve("report");
-        assertEquals(0, new CommandLine(new Main()).execute("scan", project.toString(), "--inventory-only", "--output", output.toString()));
+        assertEquals(0, new CommandLine(new Main.Scan(new ReportLibrary(root.resolve("analyzer")))).execute(project.toString(), "--inventory-only", "--output", output.toString()));
         String html = Files.readString(output.resolve("index.html"));
         var summaries = Pattern.compile("<summary>(.*?)</summary>", Pattern.DOTALL).matcher(html)
                 .results().map(m -> m.group(1)).toList();
@@ -31,5 +31,9 @@ class ReportNamingTest {
         assertEquals("demo-project", json.path("modules").get(0).path("projectName").asText());
         assertEquals("common/pom.xml", json.path("modules").get(0).path("modulePath").asText());
         assertTrue(Files.readString(project.resolve("common/pom.xml")).contains("<artifactId>sample</artifactId>"));
+        for (var module : json.path("modules")) {
+            Path copy = output.resolve(module.path("evidence").path("rawPom").asText());
+            assertArrayEquals(Files.readAllBytes(Path.of(module.path("pomPath").asText())), Files.readAllBytes(copy));
+        }
     }
 }

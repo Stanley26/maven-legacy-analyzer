@@ -1,6 +1,6 @@
 # Architecture
 
-`Main` orchestre un scan séquentiel. `Scanner` découvre les POM. `PomReader` lit les déclarations avec positions et commentaires d'origine. `Configuration` sélectionne l'environnement par dépôt. `MavenRunner` exécute le wrapper avec un délai maximal. `Collector` collecte l'effective POM et l'arbre JSON. `Analysis` construit les correspondances entre consommateurs et artefacts locaux. `ReportWriter` écrit JSON et HTML autonomes.
+`Main` orchestre un scan séquentiel. `Scanner` découvre les POM. `PomReader` lit les déclarations avec positions et commentaires d'origine. `Configuration` sélectionne l'environnement par dépôt. `MavenRunner` exécute le wrapper avec un délai maximal. `Collector` collecte l'effective POM et l'arbre JSON. `ProvenanceCollector` collecte le contexte et les sources citées par Maven ; `PomGraphCollector` complète récursivement les parents/imports et les POM du graphe sélectionné. `Provenance` construit les explications sans réimplémenter la médiation. `Analysis` établit les correspondances entre consommateurs et artefacts locaux. `ReportWriter` et `ProvenanceWriter` écrivent les pages autonomes.
 
 ## Contrat de collecte
 
@@ -12,13 +12,21 @@ Par défaut, les sorties sont écrites dans `reports/scan-<date>/`, sous le doss
 
 ## Données
 
-`analysis.json`, version de schéma `0.1`, contient : racine, mode, date, modules, erreurs de découverte, consommateurs internes et compteurs. Chaque module contient déclarations brutes, modèle effectif éventuel, dépendances sélectionnées avec chemins, contexte, invocations, preuves et anomalies.
+`analysis.json`, version de schéma `0.2`, contient : racine, mode, date, modules, erreurs de découverte, consommateurs internes et compteurs. Chaque module contient déclarations brutes, modèle effectif éventuel, dépendances sélectionnées avec chemins, contexte, invocations, preuves, anomalies, sources copiées, relations de POM et explications.
 
 Les champs `projectName` et `modulePath` portent le nom du dossier projet et le chemin du POM relatif à ce projet. Leur assemblage fournit le titre HTML même pour un scan d'un seul dépôt. `id` reste relatif à la racine du scan pour préserver les correspondances entre modules et consommateurs.
 
 L'origine d'une version effective est reprise du commentaire Maven lorsqu'il existe. Les numéros de ligne des déclarations brutes désignent le POM d'origine ; ceux du modèle effectif désignent le fichier effectif généré. `origin` contient la localisation d'origine fournie par Maven.
 
-Les candidats évincés, lignées complètes de parents/BOM et raisons détaillées d'override feront l'objet d'une extension du schéma. Une origine absente ne doit pas être fabriquée.
+`origin` désigne exclusivement l'origine du champ version ; `declarationOrigin` conserve celle de l'artefact. Elles ne sont pas interchangeables. Une liaison de source exige une identité de dépendance, une origine Maven et un numéro de ligne concordants et non ambigus. Une propriété du consommateur n'est jamais appliquée par l'analyseur à un modèle externe. Les candidats évincés et la médiation complète restent inconnus.
+
+Le graphe part des sources locales et des dépendances sélectionnées. Chaque POM brut obtenu ajoute ses parents et imports à la file. Une identité déjà vue termine les cycles. Les imports de profils sont des déclarations à collecter, sans preuve d'activation. Les coordonnées littérales utilisent le cache indiqué par Maven ; les absentes sont récupérées avec `dependency:get`. Les expressions sont évaluées par `help:evaluate`, dans le contexte du modèle concerné. Aucune configuration de connexion parallèle n'est créée.
+
+## Réutilisation des analyses
+
+`SavedReports` lit les schémas 0.1/0.2. Il reconstruit les champs de localisation disponibles depuis les XML sauvegardés et vérifie les empreintes des copies sources. La régénération écrit uniquement du HTML ; elle ne modifie ni la date du scan ni ses fichiers de preuve ou son JSON, et ne consulte jamais les dépôts originaux. `--output` importe une copie complète dans un dossier neuf. Une donnée absente reste explicitement inconnue.
+
+`ReportLibrary` maintient `reports/catalog.json` et l'accueil `index.html` dans le dossier de l'analyseur, exclus de Git. `refresh-reports` retrouve le catalogue et les dossiers sous `reports/` ; un échec n'empêche pas de régénérer les autres rapports. Les archives externes sont enregistrées avec `report`. Les liens à l'intérieur d'un rapport restent relatifs et portables.
 
 ## Limites d'exécution
 

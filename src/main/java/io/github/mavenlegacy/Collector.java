@@ -21,14 +21,14 @@ public final class Collector {
         module.context.put("offline", offline);
         module.context.put("alignmentGroups", options.alignmentGroups());
         module.context.put("reactorMode", "single module (-N); artifacts from siblings must already be available");
-        module.context.put("provenanceCoverage", "effective element origins and raw local declarations; full override history not yet reconstructed");
+        module.context.put("provenanceCoverage", "Maven origins linked to source snapshots when available; full conflict mediation not reconstructed");
         try {
             Files.createDirectories(evidenceDirectory);
             var runner = new MavenRunner();
             Path wrapper = Path.of(module.wrapper), pom = Path.of(module.pomPath), repo = Path.of(module.repository);
             Path effective = evidenceDirectory.resolve("effective-pom.xml");
             Path tree = evidenceDirectory.resolve("dependency-tree.json");
-            var effectiveArgs = new ArrayList<>(List.of("-Dverbose=true", "-Doutput=" + effective));
+            var effectiveArgs = new ArrayList<>(List.of("-V", "-Dverbose=true", "-Doutput=" + effective));
             var treeArgs = new ArrayList<>(List.of("-DoutputType=json", "-Dverbose=false", "-DoutputFile=" + tree, "-DappendOutput=false"));
             if (offline) { effectiveArgs.add("-o"); treeArgs.add("-o"); }
             collectOne(module, runner, wrapper, pom, repo, options,
@@ -46,13 +46,19 @@ public final class Collector {
             boolean resolved = module.effective != null && module.evidence.containsKey("dependencyTree");
             module.status = resolved ? "RESOLVED" : "PARTIAL";
             if (resolved) detectVersionDifferences(module, options.alignmentGroups());
+            int issueCount = module.issues.size();
+            try { new ProvenanceCollector().collect(module, options, evidenceDirectory, reportDirectory, offline); }
+            catch (Exception ex) { module.issues.add(new Issue("PROVENANCE_COLLECTION_ERROR", ex.getClass().getSimpleName() + ": " + ex.getMessage())); }
+            module.context.put("provenanceCollection", module.issues.size() == issueCount ? "COLLECTED" : "PARTIAL");
+            module.explanations = new Provenance().explain(module);
+            module.evidence.put("versionProvenance", ReportLayout.relativeLink(reportDirectory, evidenceDirectory.resolve("why-versions.html")));
         } catch (Exception ex) {
             module.status = "PARTIAL";
             module.issues.add(new Issue("COLLECTION_ERROR", ex.getClass().getSimpleName() + ": " + ex.getMessage()));
         }
     }
-    @FunctionalInterface private interface ReadResult { void read() throws Exception; }
-    private static void collectOne(Model.Module module, MavenRunner runner, Path wrapper, Path pom, Path repo,
+    @FunctionalInterface interface ReadResult { void read() throws Exception; }
+    static void collectOne(Model.Module module, MavenRunner runner, Path wrapper, Path pom, Path repo,
                                    Configuration.Options options, String goal, List<String> args, Path log, Path reportDirectory, ReadResult read) {
         try {
             var invocation = runner.run(wrapper, pom, repo, options, goal, args, log);
