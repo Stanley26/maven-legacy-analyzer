@@ -11,13 +11,14 @@ public final class Scanner {
     public record Result(List<Model.Module> modules, List<Issue> issues) {}
     public Result scan(Path input, Path output) throws IOException {
         Path root = input.toRealPath();
+        Path excludedOutput = Files.exists(output) ? output.toRealPath() : output.toAbsolutePath().normalize();
         var modules = new ArrayList<Model.Module>();
         var issues = new ArrayList<Issue>();
         var reader = new PomReader();
         boolean singleRepository = Files.isRegularFile(root.resolve("pom.xml"));
         Files.walkFileTree(root, new SimpleFileVisitor<>() {
             public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
-                if (dir.getFileName().toString().equals(".git") || dir.equals(output)) return FileVisitResult.SKIP_SUBTREE;
+                if (dir.getFileName().toString().equals(".git") || dir.equals(excludedOutput)) return FileVisitResult.SKIP_SUBTREE;
                 return FileVisitResult.CONTINUE;
             }
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {

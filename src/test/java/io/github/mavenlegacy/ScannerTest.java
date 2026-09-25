@@ -19,12 +19,12 @@ class ScannerTest {
         Files.writeString(repo.resolve(wrapperName), "");
         Files.createDirectories(root.resolve("report"));
         Files.writeString(root.resolve("report/pom.xml"), "<project/>");
-        var result = new Scanner().scan(root, root.resolve("report"));
+        var result = new Scanner().scan(root, root.resolve("report/../report"));
         assertEquals(3, result.modules().size());
         assertEquals(1, result.modules().stream().filter(m -> m.status.equals("FAILED")).count());
         var deep = result.modules().stream().filter(m -> m.id.contains("a/b/c/d")).findFirst().orElseThrow();
-        assertEquals(repo.resolve(wrapperName).toString(), deep.wrapper);
-        assertEquals(repo.toString(), deep.repository);
+        assertEquals(repo.resolve(wrapperName).toRealPath().toString(), deep.wrapper);
+        assertEquals(repo.toRealPath().toString(), deep.repository);
     }
     @Test void doesNotInventSystemMavenFallback() throws Exception {
         Files.writeString(root.resolve("pom.xml"), "<project><artifactId>root</artifactId></project>");
