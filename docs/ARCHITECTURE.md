@@ -24,9 +24,17 @@ Le graphe part des sources locales et des dépendances sélectionnées. Chaque P
 
 ## Réutilisation des analyses
 
-`SavedReports` lit les schémas 0.1/0.2. Il reconstruit les champs de localisation disponibles depuis les XML sauvegardés et vérifie les empreintes des copies sources. La régénération écrit uniquement du HTML ; elle ne modifie ni la date du scan ni ses fichiers de preuve ou son JSON, et ne consulte jamais les dépôts originaux. `--output` importe une copie complète dans un dossier neuf. Une donnée absente reste explicitement inconnue.
+`SavedReports` lit les schémas 0.1/0.2. Il reconstruit les champs de localisation disponibles depuis les XML sauvegardés et vérifie les empreintes des copies sources. La régénération écrit les pages et leurs fichiers de présentation ; elle ne modifie ni la date du scan ni ses fichiers de preuve ou son JSON original, et ne consulte jamais les dépôts originaux. `--output` importe une copie complète dans un dossier neuf. Une donnée absente reste explicitement inconnue.
 
 `ReportLibrary` maintient `reports/catalog.json` et l'accueil `index.html` dans le dossier de l'analyseur, exclus de Git. `refresh-reports` retrouve le catalogue et les dossiers sous `reports/` ; un échec n'empêche pas de régénérer les autres rapports. Les archives externes sont enregistrées avec `report`. Les liens à l'intérieur d'un rapport restent relatifs et portables.
+
+## Interface locale
+
+`ExplorerWriter` produit `index.html`, un index compact avec dictionnaires de coordonnées et de chemins dans `explorer/data.js` et `data.json`, ainsi qu'un script de détails par module. L'index représente chaque usage par module, coordonnées, scope, chemin, indicateur d'override documenté, catégorie de source et position dans les dépendances du module. Les modèles bruts complets restent dans l'archive originale ; les détails sont chargés à la demande. `details.html` conserve le rapport exhaustif.
+
+Le moteur JavaScript sans dépendance externe agrège les projets distincts, filtre les observations, calcule les consommateurs et compare les instantanés. Les tables de l'explorateur sont paginées. Les projets sont identifiés par dépôt dans un instantané ; la comparaison rapproche des noms projet/module uniques et ne compare que les modules `RESOLVED` des deux côtés. Les chemins transitoires des checkouts n'interviennent pas dans ce rapprochement.
+
+`LocalServer` régénère les présentations puis sert uniquement les dossiers des rapports, sur `127.0.0.1`. Il accepte GET/HEAD, vérifie Host et refuse les chemins hors rapport et liens symboliques. `/api/reports` expose le catalogue ; aucun endpoint ne lance Maven, modifie un projet ou téléverse des données. Le même explorateur s'ouvre par fichier sans serveur ; seule la sélection de cible diffère (fichier local au lieu du catalogue HTTP). Les données sont échappées avant insertion dans l'HTML ou les scripts.
 
 ## Limites d'exécution
 

@@ -14,13 +14,22 @@
 - Accueil `index.html` dans l'analyseur ; régénération/import de rapports sauvegardés sans Maven, compatible avec les données 0.1.
 - Laboratoire avec BOM imbriqué, parent du BOM, propriété de BOM isolée, import de profil inactif à récupérer et profil implicite actif.
 
+## Livré dans 0.3
+
+- Explorateur local : vue du parc, filtres, composants/versions/consommateurs, projets et impact des bibliothèques partagées.
+- Explication à la demande avec chemin ciblé et sources XML, index compact et tableaux paginés.
+- Commande `serve` sur loopback ; ouverture autonome du HTML toujours disponible.
+- Comparaison factuelle de deux analyses sauvegardées, avec couverture explicite des modules non comparables.
+- Tests d'agrégation sur 400 projets / 100 000 observations et conservation des archives sans Maven.
+- Évaluations de coordonnées regroupées pour limiter les démarrages Maven, avec isolation des modèles externes ; journaux rangés sous `logs/` par module.
+
 ## Terminer la V1 de provenance
 
 - Approfondir l'attestation des sources réellement utilisées (dépôt distant, SNAPSHOT, relocalisation) et les expressions non résolues.
 - Reconstituer les propriétés et déclarations candidates, médiation des conflits, exclusions, BOM importés et raisons vérifiées des versions évincées.
 - Ajouter un mode reactor qui respecte les modules frères sans installer ni modifier les applications.
 - Compléter la reproductibilité : empreintes de configuration sans secrets, propriétés externes et raisons d'activation des profils.
-- Ajouter des vues par groupe de composants, overrides, historique et comparaison entre scans.
+- Étendre les familles au-delà du groupId exact et enrichir l'historique des changements.
 - Étendre les fixtures aux SNAPSHOT, relocalisations et changements de portée transitifs.
 
 ## Analyses avancées

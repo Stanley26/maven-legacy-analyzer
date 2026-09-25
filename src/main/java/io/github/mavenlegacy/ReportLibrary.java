@@ -50,7 +50,8 @@ public final class ReportLibrary {
                         .append(escape(ex.getMessage())).append("</td></tr>");
             }
         }
-        body.append("</table></section><p>Après une mise à jour : <code>java -jar target/maven-legacy-analyzer.jar refresh-reports</code></p>");
+        body.append("</table></section><p>Interface Web locale : <code>java -jar target/maven-legacy-analyzer.jar serve</code> puis <a href='http://127.0.0.1:8080'>http://127.0.0.1:8080</a>.</p>")
+                .append("<p>Après une mise à jour : <code>java -jar target/maven-legacy-analyzer.jar refresh-reports</code></p>");
         Files.createDirectories(home.resolve("reports"));
         SavedReports.MAPPER.writerWithDefaultPrettyPrinter().writeValue(home.resolve("reports/catalog.json").toFile(), stored);
         Files.writeString(index, ProvenanceWriter.document("Maven Legacy Analyzer — analyses", body.toString()));

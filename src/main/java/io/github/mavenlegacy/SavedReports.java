@@ -75,7 +75,7 @@ public final class SavedReports {
             } else module.evidence.remove("versionProvenance");
             module.context.put("presentationMode", "Regenerated from saved analysis; no Maven invocation and no access to original source repositories");
         }
-        // Preserve the original JSON, XML and logs byte-for-byte. Only derived HTML is regenerated.
+        // Preserve the original JSON, XML and logs byte-for-byte. Only presentation pages/assets are regenerated.
         new ReportWriter().render(report, destination);
         return destination;
     }

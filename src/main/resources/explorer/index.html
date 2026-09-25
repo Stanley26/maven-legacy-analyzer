@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file:; style-src 'self' file:; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'">
+  <title>Maven Legacy Analyzer · Explorer le parc</title>
+  <link rel="stylesheet" href="explorer/style.css">
+  <script defer src="explorer/data.js"></script>
+  <script defer src="explorer/engine.js"></script>
+  <script defer src="explorer/app.js"></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="#overview"><span class="brandmark">m<span>∴</span></span><span>Maven Legacy<small>ANALYZER</small></span></a>
+    <div class="navcaption">EXPLORER L’ANALYSE</div>
+    <nav aria-label="Navigation principale">
+      <a href="#overview" data-nav="overview"><span aria-hidden="true">◫</span>Vue du parc</a>
+      <a href="#components" data-nav="components"><span aria-hidden="true">◇</span>Composants</a>
+      <a href="#projects" data-nav="projects"><span aria-hidden="true">▤</span>Projets</a>
+      <a href="#shared" data-nav="shared"><span aria-hidden="true">⑂</span>Bibliothèques partagées</a>
+      <a href="#compare" data-nav="compare"><span aria-hidden="true">⇄</span>Comparaison</a>
+    </nav>
+    <div class="sidebar-bottom"><span class="live-dot"></span> Données locales<br><small>Les faits Maven, leurs sources<br>et les points à examiner.</small><a href="details.html">Rapport détaillé ↗</a><a href="analysis.json" download>Exporter le JSON ↓</a></div>
+  </aside>
+  <div class="workspace">
+    <header class="topbar"><div><span class="eyebrow">ESPACE D’ANALYSE</span><span id="scan-date"></span></div><div id="report-picker"><span class="local-label">Analyse sauvegardée</span></div></header>
+    <section class="filters" aria-label="Filtres du parc">
+      <label class="search">Dépendance<input id="search" type="search" placeholder="Rechercher un artifactId, groupId…" autocomplete="off"></label>
+      <label>Famille / groupId<select id="family"><option value="">Toutes les familles</option></select></label>
+      <label>Version<select id="version"><option value="">Toutes</option></select></label>
+      <label>Scope<select id="scope"><option value="">Tous</option></select></label>
+      <label class="check"><input id="override" type="checkbox">Override documenté</label>
+      <label class="check"><input id="anomaly" type="checkbox">À examiner</label>
+      <button id="reset" class="text-button">Réinitialiser</button>
+    </section>
+    <main id="main" tabindex="-1"><p>Chargement de l’analyse…</p></main>
+    <footer>Résolution Maven observée · Les scopes restent distincts de la présence à l’exécution.</footer>
+  </div>
+  <dialog id="why-dialog" aria-labelledby="why-title"><div class="dialog-bar"><span class="eyebrow">COMPRENDRE UNE VERSION</span><button id="close-why" aria-label="Fermer l’explication">Fermer ×</button></div><div id="why-body"></div></dialog>
+  <noscript>Activer JavaScript pour utiliser l’explorateur ou consulter le <a href="details.html">rapport détaillé</a>.</noscript>
+</body>
+</html>

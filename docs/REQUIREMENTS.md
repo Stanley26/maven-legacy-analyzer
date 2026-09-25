@@ -23,5 +23,8 @@ Fournir un inventaire local et interrogeable des déclarations et des dépendanc
 - Quels chemins les introduisent ?
 - Quelle origine Maven documente-t-il pour une déclaration effective ?
 - Quels modules consomment un composant également identifié dans les sources analysées ?
+- Quels projets utilisent une version, un scope ou une redéfinition de propriété documentée ?
+- Quels projets distincts consomment directement ou indirectement une bibliothèque du parc ?
+- Quelles versions et quels scopes diffèrent entre deux analyses sauvegardées comparables ?
 
 La reconstruction exhaustive des overrides et de la médiation des versions est une extension future, distincte de la collecte initiale.

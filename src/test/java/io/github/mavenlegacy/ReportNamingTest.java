@@ -20,7 +20,7 @@ class ReportNamingTest {
         }
         Path output = root.resolve("report");
         assertEquals(0, new CommandLine(new Main.Scan(new ReportLibrary(root.resolve("analyzer")))).execute(project.toString(), "--inventory-only", "--output", output.toString()));
-        String html = Files.readString(output.resolve("index.html"));
+        String html = Files.readString(output.resolve("details.html"));
         var summaries = Pattern.compile("<summary>(.*?)</summary>", Pattern.DOTALL).matcher(html)
                 .results().map(m -> m.group(1)).toList();
         assertEquals(3, summaries.size());

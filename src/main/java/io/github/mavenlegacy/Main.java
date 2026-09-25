@@ -7,8 +7,8 @@ import java.util.*;
 import java.util.concurrent.Callable;
 import static io.github.mavenlegacy.Model.*;
 
-@Command(name = "maven-legacy-analyzer", mixinStandardHelpOptions = true, version = "0.2.0-SNAPSHOT",
-        description = "Analyse locale des POM et des dépendances Maven.", subcommands = { Main.Scan.class, Main.Render.class, Main.Refresh.class })
+@Command(name = "maven-legacy-analyzer", mixinStandardHelpOptions = true, version = "0.3.0-SNAPSHOT",
+        description = "Analyse locale des POM et des dépendances Maven.", subcommands = { Main.Scan.class, Main.Render.class, Main.Refresh.class, Main.Serve.class })
 public class Main implements Runnable {
     public static void main(String[] args) {
         var cli = new CommandLine(new Main());
@@ -19,6 +19,24 @@ public class Main implements Runnable {
         System.exit(cli.execute(args));
     }
     public void run() { CommandLine.usage(this, System.out); }
+
+    @Command(name = "serve", mixinStandardHelpOptions = true, description = "Explorer les analyses sauvegardées dans une interface Web locale.")
+    public static class Serve implements Callable<Integer> {
+        @Parameters(index = "0", arity = "0..1", description = "Rapport à ouvrir ; sinon utiliser le catalogue de l'analyseur") Path report;
+        @Option(names = "--port", defaultValue = "8080", description = "Port local (8080 par défaut)") int port;
+        public Integer call() throws Exception {
+            if (port < 0 || port > 65535) throw new IllegalArgumentException("Le port doit être compris entre 0 et 65535");
+            var paths = report == null ? ReportLibrary.installed().reports() : List.of(Files.isDirectory(report) ? report : report.toAbsolutePath().getParent());
+            try (var server = new LocalServer(paths, port)) {
+                server.start();
+                Runtime.getRuntime().addShutdownHook(new Thread(server::close));
+                System.out.println("Interface locale : http://127.0.0.1:" + server.port());
+                System.out.println("Analyses sauvegardées uniquement. Aucun appel Maven. Ctrl+C pour arrêter.");
+                new java.util.concurrent.CountDownLatch(1).await();
+            }
+            return 0;
+        }
+    }
 
     @Command(name = "scan", mixinStandardHelpOptions = true, description = "Scanner un dépôt ou un dossier contenant plusieurs dépôts.")
     public static class Scan implements Callable<Integer> {

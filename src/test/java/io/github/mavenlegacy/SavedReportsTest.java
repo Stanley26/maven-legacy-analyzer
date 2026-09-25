@@ -29,9 +29,11 @@ class SavedReportsTest {
         new SavedReports().render(report, null);
         assertArrayEquals(json, Files.readAllBytes(report.resolve("analysis.json")));
         assertArrayEquals(xml, Files.readAllBytes(report.resolve("evidence/old-hash/effective-pom.xml")));
-        String html = Files.readString(report.resolve("index.html"));
+        String html = Files.readString(report.resolve("details.html"));
         assertTrue(html.contains("2025-01-01T00:00:00Z"));
         assertTrue(html.contains("Pourquoi cette version ?"));
+        assertTrue(Files.readString(report.resolve("index.html")).contains("Vue du parc"));
+        assertTrue(Files.readString(report.resolve("explorer/data.js")).contains("2025-01-01T00:00:00Z"));
         String detail = Files.readString(report.resolve("evidence/app/root/why-versions.html"));
         assertTrue(detail.contains("Explication partielle"));
         assertTrue(detail.contains("Non collecté dans ce scan"));
@@ -60,7 +62,7 @@ class SavedReportsTest {
         Path report = oldReport(), json = report.resolve("analysis.json");
         Files.writeString(json, Files.readString(json).replace(",\"projectName\":\"app\",\"modulePath\":\"pom.xml\"", ""));
         new SavedReports().render(report, null);
-        assertTrue(Files.readString(report.resolve("index.html")).contains("app/pom.xml"));
+        assertTrue(Files.readString(report.resolve("explorer/data.js")).contains("app/pom.xml"));
         assertTrue(Files.isRegularFile(report.resolve("evidence/app/root/why-versions.html")));
     }
     @Test void alteredSourceSnapshotIsExcludedFromProofsWithoutChangingArchive() throws Exception {
@@ -75,7 +77,7 @@ class SavedReportsTest {
         Files.writeString(source, "changed");
         byte[] original = Files.readAllBytes(report.resolve("analysis.json"));
         new SavedReports().render(report, null);
-        assertTrue(Files.readString(report.resolve("index.html")).contains("SAVED_SOURCE_CHANGED"));
+        assertTrue(Files.readString(report.resolve("explorer/data.js")).contains("SAVED_SOURCE_CHANGED"));
         assertArrayEquals(original, Files.readAllBytes(report.resolve("analysis.json")));
         assertEquals("changed", Files.readString(source));
     }

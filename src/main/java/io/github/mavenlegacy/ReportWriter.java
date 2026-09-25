@@ -14,15 +14,17 @@ public final class ReportWriter {
     }
     public void render(Report report, Path output) throws Exception {
         for (var module : report.modules()) new ProvenanceWriter().write(module, output);
-        Files.writeString(output.resolve("index.html"), html(report), StandardCharsets.UTF_8);
+        Files.writeString(ProvenanceWriter.safeResolve(output, "details.html"), html(report), StandardCharsets.UTF_8);
+        new ExplorerWriter().write(report, output);
     }
     String html(Report report) {
         var body = new StringBuilder();
         var labels = new HashMap<String, String>();
+        int moduleIndex = 0;
         for (var module : report.modules()) {
             labels.put(module.id, module.displayName());
             var pom = module.effective != null ? module.effective : module.declared;
-            body.append("<details class='module'><summary><span class='badge'>").append(escape(module.status)).append("</span> ")
+            body.append("<details class='module' id='module-").append(moduleIndex++).append("'><summary><span class='badge'>").append(escape(module.status)).append("</span> ")
                     .append("<strong>").append(escape(module.displayName())).append("</strong>");
             if (pom != null) body.append("<span class='coordinates'>").append(escape(pom.coordinate().gav())).append("</span>");
             body.append("</summary><div class='content'>");
@@ -68,7 +70,7 @@ public final class ReportWriter {
             <title>Maven Legacy Analyzer</title><style>
             :root{font-family:system-ui,sans-serif;color:#172333;background:#f2f5f8}body{max-width:1280px;margin:auto;padding:36px 24px}h1{margin:8px 0;font-size:32px}.eyebrow{letter-spacing:.15em;color:#32655a;font-weight:700}p{line-height:1.6}.muted{color:#566675}input{width:100%;box-sizing:border-box;padding:14px;border:1px solid #b6c5cc;border-radius:8px;margin:16px 0}details{background:white;border:1px solid #d5dfe5;border-radius:8px;margin:12px 0}summary{cursor:pointer;padding:18px;overflow-wrap:anywhere}.content{padding:0 18px 18px;overflow:auto}.badge{font-size:11px;border-radius:4px;background:#e5eef1;padding:5px;font-weight:bold}table{border-collapse:collapse;width:100%;font-size:13px;margin:18px 0}td,th{padding:10px;border-bottom:1px solid #dce4e9;text-align:left;overflow-wrap:anywhere}th{background:#eaf0f4}.issue{border-left:3px solid #c07a18;padding-left:12px}.evidence{color:#086456;font-size:13px;display:inline-block;margin:8px 12px 8px 0}a{color:#086456}.note{background:#e6edef;border-radius:8px;padding:16px}h2{margin-top:32px}#empty{display:none}
             .coordinates{display:block;margin:8px 0 0 26px;font-size:13px;color:#566675;overflow-wrap:anywhere}
-            </style></head><body><div class="eyebrow">INVENTAIRE · RÉSOLUTION · PREUVES</div><h1>Maven Legacy Analyzer</h1>
+            </style></head><body><p><a href="index.html">← Explorer le parc</a></p><div class="eyebrow">INVENTAIRE · RÉSOLUTION · PREUVES</div><h1>Maven Legacy Analyzer</h1>
             <p class="muted">Analyse locale — {{date}}</p><p><strong>{{total}} POM</strong> · {{counts}}</p>
             {{presentation}}
             <p class="note">Ce rapport décrit les déclarations et les résultats Maven collectés. Les archives produites et le runtime ne sont pas vérifiés. Les origines de l’effective POM constituent des preuves partielles ; l’historique complet des overrides reste à reconstruire.</p>
@@ -76,7 +78,7 @@ public final class ReportWriter {
             <input id="filter" type="search" placeholder="component-core, application-a, 1.0.0…"><p id="empty">Aucun résultat.</p>
             <section>{{modules}}</section><h2>Consommateurs de composants internes</h2><p class="muted">Correspondances sur coordonnées et version exactes ; une correspondance ne prouve pas l’identité du binaire publié avec les sources locales.</p>
             <table><thead><tr><th>Composant</th><th>Module consommateur</th><th>Relation</th></tr></thead><tbody>{{consumers}}</tbody></table>
-            <script>document.getElementById('filter').addEventListener('input',e=>{const q=e.target.value.toLowerCase();let n=0;document.querySelectorAll('.module').forEach(el=>{el.hidden=!el.textContent.toLowerCase().includes(q);if(!el.hidden)n++;});document.getElementById('empty').style.display=n?'none':'block';});</script></body></html>
+            <script>const target=document.getElementById(location.hash.slice(1));if(target&&target.matches('details'))target.open=true;document.getElementById('filter').addEventListener('input',e=>{const q=e.target.value.toLowerCase();let n=0;document.querySelectorAll('.module').forEach(el=>{el.hidden=!el.textContent.toLowerCase().includes(q);if(!el.hidden)n++;});document.getElementById('empty').style.display=n?'none':'block';});</script></body></html>
             """.replace("{{date}}", escape(report.generatedAt())).replace("{{total}}", Integer.toString(report.modules().size()))
                 .replace("{{presentation}}", report.modules().stream().anyMatch(m -> m.context.containsKey("presentationMode"))
                         ? "<p class='note'>Présentation régénérée depuis une analyse sauvegardée, sans appel Maven. La date et les résultats restent ceux du scan d'origine. Les informations absentes de ce scan restent signalées comme non collectées.</p>" : "")

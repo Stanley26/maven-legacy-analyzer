@@ -12,9 +12,29 @@ Prérequis : JDK 21. Maven est téléchargé par le wrapper de ce dépôt au pre
 .\mvnw.cmd verify
 java -jar target/maven-legacy-analyzer.jar --help
 java -jar target/maven-legacy-analyzer.jar scan C:/projects
+java -jar target/maven-legacy-analyzer.jar serve
 ```
 
 Linux/macOS : remplacer `.\mvnw.cmd` par `./mvnw`.
+
+Ouvrir ensuite **http://127.0.0.1:8080**. `serve` régénère les vues depuis les analyses enregistrées et ouvre la plus récente ; le sélecteur permet de changer d'analyse. Aucun appel Maven n'est lancé. Le serveur écoute uniquement sur le poste local. `Ctrl+C` l'arrête ; `--port 8081` choisit un autre port. Un dossier de rapport peut être fourni pour ne servir que cette analyse : `java -jar target/maven-legacy-analyzer.jar serve reports/mon-scan`.
+
+## Explorer le parc
+
+- **Vue du parc** : projets distincts, POM, composants, familles présentes et points à examiner. Filtres par dépendance, groupId, version, scope, override documenté et diagnostics.
+- **Composants** : versions observées et nombre de projets consommateurs. Cliquer sur une version pour consulter les modules, scopes, origines de déclaration et preuves. La surface en aval contient les dépendances dont le chemin sélectionné passe par le composant.
+- **Pourquoi ?** : chemin d'introduction ciblé, déclarations, propriétés et redéfinitions documentées, avec liens vers les lignes XML. Les faits de gestion de version restent distincts du graphe transitif.
+- **Projets** : modules avec leurs noms complets, état de collecte et dépendances filtrables.
+- **Bibliothèques partagées** : consommateurs externes au dépôt fournisseur, directs, indirects uniquement et total distinct. Les ensembles ne sont pas additionnés avec doublons.
+- **Comparaison** : sélectionner une autre analyse enregistrée, ou ouvrir son `analysis.json` local. Les écarts de versions/scopes peuvent être filtrés par projet ou dépendance, et par override documenté à examiner.
+
+Les tableaux de l'explorateur sont paginés par 40 lignes. Les preuves détaillées d'un module sont chargées à la demande. Les compteurs de composants regroupent par `groupId:artifactId` ; le détail conserve version, type et classifier. Un même projet peut appartenir à plusieurs compteurs de versions. « Interne » signifie qu'un GAV résolu correspond à un module du parc, sans preuve d'identité du binaire.
+
+Les familles sont les groupId observés, sans composant propre à une organisation codé en dur. « Override documenté » couvre les redéfinitions de propriétés prouvées par les sources collectées, et ne prétend pas recenser tous les overrides possibles. La dispersion de versions entre projets n'est pas automatiquement un conflit.
+
+La comparaison rapproche les modules par nom de projet et chemin du POM, puis les dépendances par groupId, artifactId, type et classifier. Seuls les modules résolus des deux côtés, avec un nom non ambigu, sont comparables. Un module absent, renommé ou partiel reste **non comparable** ; ses dépendances ne sont pas annoncées comme supprimées. Les écarts ne prouvent pas une compatibilité ou un blocage de migration. L'acquisition et la simulation du modèle d'une version cible restent à implémenter.
+
+L'ouverture directe du `index.html` d'un rapport fonctionne aussi sans serveur, avec les fichiers `explorer/` à côté. La comparaison utilise alors le sélecteur de fichier local. Le rapport exhaustif reste accessible dans `details.html`. Aucun CDN ni service externe n'est utilisé.
 
 Pour un inventaire des déclarations sans lancer Maven :
 
@@ -30,10 +50,13 @@ maven-legacy-analyzer/
   reports/
     scan-2026-01-02_03-04-05-000/
       index.html
+      details.html
       analysis.json
+      explorer/              # index compact et scripts de présentation régénérables
       evidence/
         project-a/
           root/effective-pom.xml
+          root/logs/effective-pom.log
           ear/effective-pom.xml
           common/effective-pom.xml
 ```
@@ -47,7 +70,7 @@ Conserver le dossier complet de chaque rapport, avec `analysis.json` et `evidenc
 java -jar target/maven-legacy-analyzer.jar refresh-reports
 ```
 
-`refresh-reports` retrouve les analyses du dossier `reports/` et celles enregistrées dans le catalogue local. **Cette commande ne lance aucun wrapper/Maven, ne nécessite aucun accès réseau et ne lit pas les dépôts sources.** Elle conserve les JSON, XML et logs du scan ; elle régénère uniquement les pages HTML. La compilation de l'analyseur, elle, utilise son propre wrapper et peut nécessiter Maven Central.
+`refresh-reports` retrouve les analyses du dossier `reports/` et celles enregistrées dans le catalogue local. **Cette commande ne lance aucun wrapper/Maven, ne nécessite aucun accès réseau et ne lit pas les dépôts sources.** Elle conserve le JSON original, les XML et les logs du scan ; elle régénère les pages HTML et leurs fichiers de présentation dans `explorer/`. La compilation de l'analyseur, elle, utilise son propre wrapper et peut nécessiter Maven Central.
 
 Pour un ancien rapport situé ailleurs, l'enregistrer et régénérer ses pages sur place :
 
@@ -79,9 +102,11 @@ Le rapport sépare l'origine de la déclaration `${version}` et celle de la prop
 
 Le contexte contient les versions Maven/JDK annoncées lors de la collecte effective et la sortie de `help:active-profiles`, distincte des profils demandés. Ces collectes ajoutent des invocations Maven. Un échec de provenance ne supprime pas l'effective POM ou l'arbre déjà obtenus ; `context.provenanceCollection` indique `PARTIAL` et les erreurs restent visibles.
 
+Les nouveaux scans regroupent les journaux Maven dans `evidence/<projet>/<module>/logs/`. Les fichiers `coordinate-*.log` retracent l'évaluation des expressions utilisées dans les coordonnées de parents ou de BOM ; leur présence n'indique pas une erreur. Les résultats de diagnostic correspondants (`coordinate-*.txt`, recherche des parents et du cache) sont dans le même dossier. Les expressions d'un même contexte sont regroupées dans des appels de taille limitée ; les valeurs des modèles externes ne sont pas partagées entre différents contextes Maven. `context.pomGraph` indique le nombre de propriétés et de lots évalués. Les anciens rapports conservent leurs chemins et restent consultables sans déplacement de leurs preuves.
+
 Chaque analyse crée un dossier daté. Les titres HTML affichent `project-a/ear/pom.xml` et les coordonnées Maven sans ouvrir les détails. `root` représente le POM à la racine du projet ; les chemins imbriqués utilisent `--` (ex. `app--webapp`). Si deux noms normalisés sont identiques, un suffixe numérique les distingue. Les fichiers source `pom.xml` ne sont pas renommés.
 
-`--output <chemin>` permet de choisir un autre dossier, neuf ou vide. Les anciens rapports ne sont pas déplacés ; relancer un scan produit la nouvelle présentation. Les appels Maven peuvent télécharger dans le cache, exécuter les extensions du projet et produire les effets habituels de son wrapper : utiliser des dépôts de confiance. Aucun `install`, `package` ou `deploy` n'est lancé sur les projets analysés.
+`--output <chemin>` permet de choisir un autre dossier, neuf ou vide. Les anciens rapports ne sont pas déplacés ; `report` ou `refresh-reports` actualise leur présentation sans nouveau scan. Les appels Maven peuvent télécharger dans le cache, exécuter les extensions du projet et produire les effets habituels de son wrapper : utiliser des dépôts de confiance. Aucun `install`, `package` ou `deploy` n'est lancé sur les projets analysés.
 
 ## Fonctionnalités de cette version
 
@@ -141,6 +166,6 @@ Code de sortie : `0` = collecte demandée terminée sans échec ; `2` = échec p
 
 ## Organisation
 
-Voir [les exigences fonctionnelles](docs/REQUIREMENTS.md), [l'architecture](docs/ARCHITECTURE.md) et [la feuille de route](docs/ROADMAP.md). Les tests unitaires s'exécutent avec `mvnw verify`. Le workflow GitHub Actions les exécute sur Windows et Linux et vérifie aussi le laboratoire réel.
+Voir [les exigences fonctionnelles](docs/REQUIREMENTS.md), [l'architecture](docs/ARCHITECTURE.md) et [la feuille de route](docs/ROADMAP.md). Les tests Java s'exécutent avec `mvnw verify`. Les tests des agrégations et comparaisons de l'interface s'exécutent avec `node --test src/test/js/explorer.test.cjs` (Node 22, sans installation de paquets). Node n'est pas nécessaire pour lancer l'analyseur. GitHub Actions exécute les deux suites sur Windows et Linux, ainsi que le laboratoire Maven réel.
 
 Sources techniques : [Maven dependency mechanism](https://maven.apache.org/guides/introduction/introduction-to-dependency-mechanism.html), [effective-pom](https://maven.apache.org/plugins/maven-help-plugin/effective-pom-mojo.html), [dependency:tree](https://maven.apache.org/plugins/maven-dependency-plugin/tree-mojo.html), [Maven Wrapper](https://maven.apache.org/tools/wrapper/).
