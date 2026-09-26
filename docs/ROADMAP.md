@@ -23,6 +23,7 @@
 - Tests d'agrégation sur 400 projets / 100 000 observations et conservation des archives sans Maven.
 - Évaluations de coordonnées regroupées pour limiter les démarrages Maven, avec isolation des modèles externes ; journaux rangés sous `logs/` par module.
 - Collecte automatique hors ligne d'abord, puis reprise réseau si nécessaire, avec le cache configuré dans Maven et correspondance exacte des versions.
+- Vue d'entrée « Structures du parc » : hiérarchies regroupées automatiquement, familles de structures voisines, variantes de parents/BOM/dépendances côte à côte, listes de projets, écarts et preuves. Calcul sur les analyses sauvegardées, couverture incomplète explicite et test sur 400 projets / 100 000 observations.
 
 ## Terminer la V1 de provenance
 

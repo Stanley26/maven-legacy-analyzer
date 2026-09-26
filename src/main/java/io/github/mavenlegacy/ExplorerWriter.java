@@ -11,7 +11,7 @@ public final class ExplorerWriter {
     public void write(Report report, Path output) throws Exception {
         Path assets = ProvenanceWriter.safeResolve(output, "explorer");
         Files.createDirectories(assets);
-        for (String name : List.of("app.js", "engine.js", "style.css")) Files.write(ProvenanceWriter.safeResolve(output, "explorer/" + name), resource(name));
+        for (String name : List.of("app.js", "engine.js", "structures.js", "style.css")) Files.write(ProvenanceWriter.safeResolve(output, "explorer/" + name), resource(name));
         Files.write(ProvenanceWriter.safeResolve(output, "index.html"), resource("index.html"));
         String index = safeJson(index(report));
         Files.writeString(ProvenanceWriter.safeResolve(output, "explorer/data.js"), "window.MLA_DATA=" + index + ";");
@@ -53,6 +53,7 @@ public final class ExplorerWriter {
             module.put("gav", p == null ? "" : p.coordinate().gav()); module.put("status", m.status);
             module.put("issues", m.issues); module.put("why", m.evidence.get("versionProvenance"));
             module.put("provenance", Objects.toString(m.context.get("provenanceCollection"), "UNKNOWN"));
+            module.put("structure", StructureIndex.module(m));
             modules.add(module);
             for (int j = 0; j < m.dependencies.size(); j++) {
                 var d = m.dependencies.get(j);

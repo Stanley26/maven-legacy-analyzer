@@ -16,8 +16,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify explorer aggregates and comparisons
-        run: node --test src/test/js/explorer.test.cjs
+      - name: Verify explorer aggregates, comparisons and structure groups
+        run: node --test src/test/js/explorer.test.cjs src/test/js/structures.test.cjs
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

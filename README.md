@@ -21,6 +21,7 @@ Ouvrir ensuite **http://127.0.0.1:8080**. `serve` régénère les vues depuis le
 
 ## Explorer le parc
 
+- **Structures du parc** (vue d'entrée) : regroupement automatique de tous les projets par hiérarchie, puis rapprochement des structures voisines. Les variantes de parents, BOM et dépendances sont présentées côte à côte avec les projets concernés, les écarts et leurs preuves. Aucune paire de projets n'est à sélectionner.
 - **Vue du parc** : projets distincts, POM, composants, familles présentes et points à examiner. Filtres par dépendance, groupId, version, scope, override documenté et diagnostics.
 - **Composants** : versions observées et nombre de projets consommateurs. Cliquer sur une version pour consulter les modules, scopes, origines de déclaration et preuves. La surface en aval contient les dépendances dont le chemin sélectionné passe par le composant.
 - **Pourquoi ?** : chemin d'introduction ciblé, déclarations, propriétés et redéfinitions documentées, avec liens vers les lignes XML. Les faits de gestion de version restent distincts du graphe transitif.
@@ -30,7 +31,17 @@ Ouvrir ensuite **http://127.0.0.1:8080**. `serve` régénère les vues depuis le
 
 Les tableaux de l'explorateur sont paginés par 40 lignes. Les preuves détaillées d'un module sont chargées à la demande. Les compteurs de composants regroupent par `groupId:artifactId` ; le détail conserve version, type et classifier. Un même projet peut appartenir à plusieurs compteurs de versions. « Interne » signifie qu'un GAV résolu correspond à un module du parc, sans preuve d'identité du binaire.
 
-Les familles sont les groupId observés, sans composant propre à une organisation codé en dur. « Override documenté » couvre les redéfinitions de propriétés prouvées par les sources collectées, et ne prétend pas recenser tous les overrides possibles. La dispersion de versions entre projets n'est pas automatiquement un conflit.
+Le filtre « Famille / groupId » utilise les groupId observés. Les familles de la vue **Structures du parc** sont des rapprochements de structures Maven, sans composant propre à une organisation codé en dur. « Override documenté » couvre les redéfinitions de propriétés prouvées par les sources collectées, et ne prétend pas recenser tous les overrides possibles. La dispersion de versions entre projets n'est pas automatiquement un conflit.
+
+### Structures et variantes automatiques
+
+Une hiérarchie conserve les chaînes de parents externes avec leurs versions, le nombre/type des modules et leurs relations d'agrégation. Les noms, chemins et versions propres aux applications/modules locaux sont normalisés pour reconnaître les mêmes structures entre dépôts. Les variantes distinguent les imports de BOM dans leur ordre de déclaration (profils conservés sans présumer leur activation), les versions/scopes/types/classifiers, les chemins de dépendances sélectionnés et leurs origines documentées.
+
+Les hiérarchies voisines partagent un parent ou un BOM et au moins un type de module non agrégateur (ou `pom` pour les projets exclusivement POM). Sinon, le rapprochement nécessite la même composition de modules, au moins trois dépendances directes communes et un recouvrement pondéré d'au moins 75 %. Le poids est `1 + ln((nombre de projets + 1) / (projets utilisant directement la dépendance + 1))`. Chaque groupe est rapproché directement de la référence de la famille, sans fusion transitive de voisins. La référence est la variante la plus fréquente de la hiérarchie la plus représentée, avec départage déterministe. Elle décrit le parc ; elle ne définit pas une norme ni une recette de migration validée.
+
+La recherche facultative par projet, parent, BOM ou dépendance garde la famille entière visible. Les filtres des autres vues ne modifient pas les groupes. Les hiérarchies manquantes, ambiguës ou cycliques sont affichées séparément. Les dépendances/BOM incomplets ne permettent pas de conclure à une absence ou à une égalité de variantes. Les observations affichées sont illustrées par un projet représentatif, avec accès à tous les autres projets du groupe et à leurs preuves.
+
+Cette vue s'obtient aussi sur les analyses sauvegardées avec `refresh-reports`, `report` ou `serve`, sans nouvelle collecte Maven. Une ancienne archive dépourvue de sources suffisantes garde une couverture explicitement partielle.
 
 La comparaison rapproche les modules par nom de projet et chemin du POM, puis les dépendances par groupId, artifactId, type et classifier. Seuls les modules résolus des deux côtés, avec un nom non ambigu, sont comparables. Un module absent, renommé ou partiel reste **non comparable** ; ses dépendances ne sont pas annoncées comme supprimées. Les écarts ne prouvent pas une compatibilité ou un blocage de migration. L'acquisition et la simulation du modèle d'une version cible restent à implémenter.
 

@@ -12,6 +12,9 @@
   const factNames = {INTRODUCTION:'Chemin observé',INTRODUCER_DECLARATION:'Déclaration d’introduction',EFFECTIVE_DECLARATION:'Déclaration effective',EFFECTIVE_MANAGEMENT:'Gestion effective',DECLARED_SOURCE:'Déclaration source',MANAGED_SOURCE:'Gestion de version source',EFFECTIVE_PROPERTY:'Propriété effective',PROPERTY_OVERRIDE:'Redéfinition documentée',EXTERNAL_PROPERTY:'Propriété du modèle externe',PROPERTY_CANDIDATE:'Propriété à confirmer'};
   let filters = {}, pages = {}, componentVersion = '', catalog = [], targetName = '', targetId = '', diff = null, compareQuery = '', compareOverrides = false;
   let renderToken = 0, searchTimer;
+  let structureData, structureQuery = '', structureVariantsOnly = false;
+  const structures = () => structureData ||= window.MLA_STRUCTURES.build(D);
+  const structureKinds = {parents:'Hiérarchie des parents',modules:'Modules agrégés',bom:'Imports / parents de BOM',dependencies:'Dépendances résolues',paths:'Chemins de dépendances'};
   const sourceUrl = (path,line) => {
     if (typeof path !== 'string' || !path || path.startsWith('/') || /[\\:?#]/.test(path) || path.split('/').some(p => p === '..' || p === '.')) return null;
     return path.split('/').map(encodeURIComponent).join('/') + (line > 0 ? `.html#L${Number(line)}` : '');
@@ -102,17 +105,96 @@
       + (diff.unknown.length ? panel('Couverture de comparaison','Un module absent ou incomplet ne permet pas de conclure à un retrait de dépendance.',paged('unknown',['Module','Motif'],diff.unknown,r => `<tr><td>${esc(r.label)}</td><td>${esc(r.reason)}</td></tr>`)) : '');
     return html;
   }
+  function cardsPage(id,items,draw,size=8) {
+    const page = Math.max(0,Math.min(pages[id] || 0,Math.ceil(items.length / size) - 1));
+    pages[id] = page;
+    return items.slice(page * size,(page + 1) * size).map(draw).join('') + (items.length > size ? `<div class="pager"><span>${page * size + 1}–${Math.min((page + 1) * size,items.length)} sur ${items.length}</span><div><button data-page="${id}" data-step="-1" ${page ? '' : 'disabled'}>← Précédent</button><button data-page="${id}" data-step="1" ${(page + 1) * size >= items.length ? 'disabled' : ''}>Suivant →</button></div></div>` : '');
+  }
+  function structureCard(v,f) {
+    const S = window.MLA_STRUCTURES, g = structures().groups[v.group], baseline = f.baseline.id === v.id;
+    const delta = S.differences(f.baseline.sample,v.sample);
+    const chains = E.unique(v.sample.chains.map(c => c.label));
+    const previews = delta.rows.filter(r => r.kind !== 'paths').slice(0,3);
+    return `<article class="structure-card ${baseline ? 'reference' : ''}"><div class="structure-card-head">${badge(baseline ? 'Référence descriptive' : `Structure ${g.id + 1}` ,baseline ? 'teal' : '')}<strong>${num(v.projects.length)} <small>projet${v.projects.length > 1 ? 's' : ''}</small></strong></div>
+      <h3>${esc(baseline ? `Structure ${g.id + 1}` : `Variante ${g.variants.indexOf(v) + 1}`)}</h3>
+      <div class="structure-chain">${chains.slice(0,3).map(c => `<p>${esc(c)}</p>`).join('')}${chains.length > 3 ? `<small>+ ${chains.length - 3} chaînes dans le détail</small>` : ''}</div>
+      <p class="muted">${num(v.sample.modules.length)} POM / modules par projet.<br>${g.projects.length} projet(s) partagent cette hiérarchie · ${g.variants.length} variante(s).</p>
+      ${!v.sample.depsKnown || !v.sample.bomKnown ? badge('Dépendances / BOM à compléter','amber') : ''}
+      ${baseline ? '<p class="structure-common">La variante la plus fréquente de la hiérarchie principale sert de point de comparaison.</p>' : `<div class="structure-changes">${previews.map(r => `<p><span class="eyebrow">${esc(structureKinds[r.kind])}</span><strong>${esc(r.label)}</strong><span class="structure-before">Réf. : ${esc(r.before.join(' ; ') || 'Non observé')}</span><span>Variante : ${esc(r.after.join(' ; ') || 'Non observé')}</span></p>`).join('') || '<p>Mêmes observations comparables.</p>'}<small>${delta.rows.length} écart(s) détaillé(s)${delta.unknown.length ? ' · couverture partielle' : ''}</small></div>`}
+      <div class="structure-projects">${v.projects.slice(0,3).map(p => link(route('projects',p.id),p.name)).join(' · ')}${v.projects.length > 3 ? ` · + ${v.projects.length - 3}` : ''}</div>
+      ${link(route('structure-variant',v.id),`Voir ${v.projects.length > 1 ? 'les ' + num(v.projects.length) + ' projets' : 'le projet'} et les preuves →`,'structure-open')}</article>`;
+  }
+  function structureFamily(f,expanded=false) {
+    // Show different hierarchies first; when there is only one, its dependency variants are already side by side.
+    const first = f.groups.map(g => g.variants[0]);
+    const ordered = [...first,...f.variants.filter(v => !first.includes(v))];
+    const cards = expanded ? cardsPage('structure-cards',ordered,v => structureCard(v,f),12) : ordered.slice(0,3).map(v => structureCard(v,f)).join('');
+    return panel(f.label,`${f.projects.length} projets · ${f.groups.length} hiérarchie(s) · ${f.variants.length} variante(s)`,
+      `<div class="panelbody"><div class="structure-grid">${cards}</div>${!expanded && ordered.length > 3 ? `<p class="muted">${ordered.length - 3} autres variantes dans cette famille.</p>` : ''}</div>`,
+      expanded ? '' : link(route('structures',f.id),'Explorer cette famille →','table-link'));
+  }
+  function structuresView(id) {
+    const s = structures();
+    if (id !== undefined) {
+      const f = s.families[Number(id)]; if (!f) return empty('Famille introuvable.');
+      return link('#structures','← Toutes les structures','back')
+        + head(f.label,'Les hiérarchies et variantes de cette famille, regroupées automatiquement.','STRUCTURES / FAMILLE')
+        + `<div class="notice info">Le groupe de référence décrit la structure la plus fréquente de cette famille. Il ne constitue pas une règle de conformité ni une recette de migration validée.</div>`
+        + structureFamily(f,true)
+        + panel('Pourquoi ces groupes sont rapprochés','Chaque hiérarchie est comparée directement au groupe de référence ; les rapprochements ne se propagent pas de voisin en voisin.',
+          table(['Hiérarchie','Projets','Raison du rapprochement'],f.groups.map(g => `<tr><td>Structure ${g.id + 1}</td><td>${g.projects.length}</td><td>${esc(g.reason)}</td></tr>`)));
+    }
+    const q = structureQuery.toLowerCase().trim();
+    const families = s.families.filter(f => (!q || f.search.includes(q)) && (!structureVariantsOnly || f.variants.length > 1));
+    const incomplete = s.incomplete.filter(p => !q || p.search.includes(q));
+    return head('Structures du parc','Les projets de même structure sont réunis automatiquement. Leurs variantes de parents, de BOM et de dépendances apparaissent côte à côte.','PARC / REGROUPEMENT AUTOMATIQUE')
+      + `<div class="stats">${stat(D.projects.length,'Projets du parc','Chaque dépôt compte une fois')}${stat(s.families.length,'Familles de structures','Rapprochements expliqués')}${stat(s.groups.length,'Hiérarchies distinctes','Parents, versions et modules agrégés')}${stat(s.incomplete.length,'Hiérarchies à compléter','Sources absentes ou ambiguës')}</div>`
+      + `<div class="structure-toolbar"><label>Rechercher dans les familles<input id="structure-query" type="search" placeholder="Projet, parent, BOM ou dépendance…" value="${esc(structureQuery)}"></label><label class="structure-check"><input id="structure-variants" type="checkbox" ${structureVariantsOnly ? 'checked' : ''}> Familles avec variantes</label><span>${families.length} famille(s) affichée(s)</span></div>
+      <p class="muted">La recherche conserve la famille entière pour garder les variantes visibles. Les regroupements utilisent toute l’analyse, indépendamment des filtres des autres vues.</p>`
+      + (families.length ? cardsPage('structure-families',families,f => structureFamily(f)) : empty('Aucune famille pour cette recherche.'))
+      + (incomplete.length ? panel('Hiérarchies à compléter','Ces projets restent visibles, sans assimiler une source manquante à une absence de parent.',
+        paged('structure-incomplete',['Projet','Informations manquantes','POM'],incomplete,p => `<tr><td>${link(route('projects',p.id),p.name,'table-link')}</td><td>${p.problems.map(esc).join('<br>')}</td><td>${p.modules.map(m => link(`details.html#module-${m.id}`,m.label)).join('<br>')}</td></tr>`)) : '')
+      + `<details class="structure-method"><summary>Comprendre les regroupements</summary><p>Une hiérarchie conserve les versions des parents externes, le nombre et le type des modules et les relations d’agrégation. Les noms et versions propres aux modules locaux ne séparent pas deux structures identiques.</p><p>Les hiérarchies voisines partagent un parent ou un BOM et un type de module. À défaut, un rapprochement exige la même composition de modules, au moins trois dépendances directes communes et un recouvrement pondéré d’au moins 75 %. Les dépendances les moins répandues dans le parc pèsent davantage.</p><p>Les variantes distinguent les imports de BOM dans leur ordre de déclaration, les versions, scopes, types, classifiers, chemins sélectionnés et origines documentées des dépendances. Les imports de profils sont des déclarations : leur collecte ne prouve pas leur activation. Les configurations Maven et JDK restent consultables dans les preuves de chaque module.</p></details>`;
+  }
+  function structureRefs(refs) {
+    return refs.slice(0,3).map(ref => ref.dependency !== undefined
+      ? `<button data-why="${ref.module}:${ref.dependency}">Pourquoi ? · ${esc(D.modules[ref.module].label)}</button>`
+      : evidenceLink(ref.evidence,D.modules[ref.module].label,ref.line) || link(`details.html#module-${ref.module}`,D.modules[ref.module].label)).join('<br>') + (refs.length > 3 ? '<small>Autres modules consultables dans les projets.</small>' : '');
+  }
+  function structureVariant(id) {
+    const s = structures(), v = s.variants[Number(id)]; if (!v) return empty('Variante introuvable.');
+    const f = s.families[v.family], reference = f.baseline, same = reference.id === v.id, p = v.sample;
+    const delta = window.MLA_STRUCTURES.differences(reference.sample,p);
+    const rows = same ? [...p.rows.values()].map(r => ({...r,before:[],after:window.MLA_STRUCTURES.rowValues(r),beforeRefs:[],afterRefs:r.refs})) : delta.rows;
+    const diffSection = panel(same ? 'Observations de la référence' : 'Différences observées',`Preuves illustrées par ${reference.sample.name}${same ? '' : ' et ' + p.name}. Une différence n’est pas automatiquement une erreur.`,
+      rows.length ? paged('structure-differences',same ? ['Critère','Observation','Preuves'] : ['Critère',`Référence · ${reference.projects.length} projet(s)`,`Cette variante · ${v.projects.length} projet(s)`],rows,r => {
+        const criterion = `<td>${badge(structureKinds[r.kind])}<strong class="structure-row-label">${esc(r.label)}</strong></td>`;
+        const before = `<td>${r.before.map(esc).join('<br>') || 'Non observé'}<div class="structure-row-proofs">${structureRefs(r.beforeRefs)}</div></td>`;
+        const after = `<td>${r.after.map(esc).join('<br>') || 'Non observé'}${same ? '' : `<div class="structure-row-proofs">${structureRefs(r.afterRefs)}</div>`}</td>`;
+        return `<tr>${criterion}${same ? '' : before}${after}${same ? `<td>${structureRefs(r.afterRefs)}</td>` : ''}</tr>`;
+      }) : empty('Aucun écart démontré sur les observations comparables.'));
+    return link(route('structures',f.id),'← Famille : ' + f.label,'back')
+      + head(`Structure ${v.group + 1} · ${v.projects.length} projet(s)`,same ? 'Variante de référence descriptive de cette famille.' : 'Écarts par rapport à la variante de référence de cette famille.','STRUCTURES / VARIANTE')
+      + (delta.unknown.length ? `<div class="notice">${delta.unknown.map(esc).join('<br>')}${p.bomProblems.length ? '<br>' + p.bomProblems.map(esc).join('<br>') : ''}</div>` : '')
+      + diffSection
+      + panel('Projets de cette variante','Les liens ouvrent les modules et leurs preuves dans l’analyse sauvegardée.',paged('variant-projects',['Projet','Modules','Couverture'],v.projects,item => `<tr><td>${link(route('projects',item.id),item.name,'table-link')}</td><td>${item.modules.map(m => link(`details.html#module-${m.id}`,m.label)).join('<br>')}</td><td>${badge(item.depsKnown && item.bomKnown ? 'Observations disponibles' : 'À compléter',item.depsKnown && item.bomKnown ? 'teal' : 'amber')}</td></tr>`))
+      + panel('Hiérarchies observées',`Exemple représentatif : ${p.name}. Les noms complets restent visibles dans les preuves.`,
+        `<div class="panelbody">${p.chains.map(c => `<div class="structure-proof-chain">${c.nodes.map(n => evidenceLink(n.evidence,n.gav) || esc(n.gav)).concat(link(`details.html#module-${c.module}`,D.modules[c.module].label)).join('<span aria-hidden="true"> → </span>')}</div>`).join('')}</div>`);
+  }
   function render() {
-    const [kind,encoded] = (location.hash.slice(1) || 'overview').split('/');
+    const [kind,encoded] = (location.hash.slice(1) || 'structures').split('/');
     let id; try { id = encoded === undefined ? undefined : decodeURIComponent(encoded); } catch { id = undefined; }
-    document.querySelectorAll('[data-nav]').forEach(a => { a.classList.toggle('active',a.dataset.nav === kind); if (a.dataset.nav === kind) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
-    $('.filters').hidden = kind === 'compare';
+    const nav = kind === 'structure-variant' ? 'structures' : kind;
+    document.querySelectorAll('[data-nav]').forEach(a => { a.classList.toggle('active',a.dataset.nav === nav); if (a.dataset.nav === nav) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
+    $('.filters').hidden = ['compare','structures','structure-variant'].includes(kind);
     const uses = E.filter(D,filters);
     let html;
     if (kind === 'components') html = id !== undefined ? componentDetail(id,uses) : head('Composants','Rechercher une dépendance, choisir une version et retrouver ses consommateurs.','PARC / DÉPENDANCES') + panel('Catalogue des composants','Une entrée par groupId:artifactId.',paged('components',['Composant','Projets','Versions','Overrides'],E.components(D,uses),componentRow));
     else if (kind === 'projects') html = id !== undefined ? projectDetail(Number(id),uses) : head('Projets','Explorer les modules et les dépendances de chaque dépôt.','PARC / PROJETS') + panel('Projets dans la sélection','Les compteurs regroupent les modules d’un même dépôt.',paged('projects',['Projet','POM','Composants','État'],E.projects(D,uses,filters),projectRow));
     else if (kind === 'shared') html = shared(uses);
     else if (kind === 'compare') html = comparison();
+    else if (kind === 'structures') html = structuresView(id);
+    else if (kind === 'structure-variant') html = structureVariant(id);
     else html = overview(uses,E.components(D,uses),E.projects(D,uses,filters));
     $('#main').innerHTML = html;
   }
@@ -172,8 +254,14 @@
       const file = event.target.files[0]; loadTarget(async () => JSON.parse(await file.text()),file.name);
     }
     if (event.target.id === 'compare-overrides') { compareOverrides = event.target.checked; pages.diff = 0; render(); }
+    if (event.target.id === 'structure-variants') { structureVariantsOnly = event.target.checked; pages['structure-families'] = 0; render(); }
   });
   $('#main').addEventListener('input',event => {
+    if (event.target.id === 'structure-query') {
+      structureQuery = event.target.value; clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => { pages['structure-families'] = 0; pages['structure-incomplete'] = 0; render(); $('#structure-query')?.focus(); },180);
+      return;
+    }
     if (event.target.id !== 'compare-query') return;
     compareQuery = event.target.value; clearTimeout(searchTimer);
     searchTimer = setTimeout(() => { pages.diff = 0; render(); const input = $('#compare-query'); input?.focus(); },180);
